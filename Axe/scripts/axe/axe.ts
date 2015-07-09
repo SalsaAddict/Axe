@@ -38,6 +38,8 @@ module Axe {
         }
     }
     export module Procedure {
+        export enum ERunType { manual = 1, auto, once }
+        export enum EModelType { array = 1, singleton, object }
         export interface IScope extends angular.IScope {
             name: string; alias: string; run: string; model: string; type: string; root: string;
         }
@@ -46,7 +48,7 @@ module Axe {
             constructor(private $scope: IScope) { }
             get name(): string { return IfBlank(this.$scope.name); }
             get alias(): string { return IfBlank(this.$scope.alias, this.name); }
-            get runType(): string { return Option(this.$scope.run, "manual", ["auto", "once"]); }
+            get runType(): ERunType { return IfBlank(ERunType[this.$scope.type], ERunType.manual); }
             get hasModel(): boolean { return !IsBlank(this.$scope.model); }
             get modelExpression(): string { return IfBlank(this.$scope.model); }
             get modelType(): string {

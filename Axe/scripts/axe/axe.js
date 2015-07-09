@@ -65,6 +65,12 @@ var Axe;
     })(Main = Axe.Main || (Axe.Main = {}));
     var Procedure;
     (function (Procedure) {
+        (function (ERunType) {
+            ERunType[ERunType["manual"] = 1] = "manual";
+            ERunType[ERunType["auto"] = 2] = "auto";
+            ERunType[ERunType["once"] = 3] = "once";
+        })(Procedure.ERunType || (Procedure.ERunType = {}));
+        var ERunType = Procedure.ERunType;
         var Controller = (function () {
             function Controller($scope) {
                 this.$scope = $scope;
@@ -80,7 +86,7 @@ var Axe;
                 configurable: true
             });
             Object.defineProperty(Controller.prototype, "runType", {
-                get: function () { return Option(this.$scope.run, "manual", ["auto", "once"]); },
+                get: function () { return IfBlank(ERunType[this.$scope.type], ERunType.manual); },
                 enumerable: true,
                 configurable: true
             });

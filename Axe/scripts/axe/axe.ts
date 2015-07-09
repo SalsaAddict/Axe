@@ -7,6 +7,7 @@ module Axe {
     export function IsBlank(expression: any): boolean {
         if (expression === undefined) { return true; }
         if (expression === null) { return true; }
+        if (expression === NaN) { return true; }
         if (expression === {}) { return true; }
         if (expression === []) { return true; }
         if (String(expression).trim().length === 0) { return true; }
@@ -16,7 +17,7 @@ module Axe {
         return (IsBlank(expression)) ? defaultValue : expression;
     }
     export function Option(value: any, defaultValue: string = "", allowedValues: string[] = []): string {
-        var option: string = angular.lowercase(value).trim();
+        var option: string = angular.lowercase(String(value)).trim();
         if (allowedValues.length > 0) {
             var found: boolean = false;
             angular.forEach(allowedValues, (allowedValue: string) => {
@@ -26,7 +27,33 @@ module Axe {
         }
         return IfBlank(option, angular.lowercase(defaultValue).trim());
     }
-    export module Main {
+    export enum EFormat { text, integer, decimal, percent, date, time, boolean, object }
+    export function Parse(expression: any, format: EFormat, defaultValue: any = undefined): any {
+        if (IsBlank(expression)) { return defaultValue; }
+        var value: any = expression;
+        switch (format) {
+            case EFormat.integer: value = parseInt(parseFloat(value).toFixed(0), 10); break;
+            case EFormat.decimal: value = parseFloat(parseFloat(value).toFixed(2)); break;
+            case EFormat.percent: value = parseFloat(parseFloat(value).toFixed(4)); break;
+            case EFormat.date:
+                var dateFormat: string = "YYYY-MM-DD";
+                switch (Option(value)) {
+                    case "today": value = moment().format(dateFormat); break;
+                    case "tomorrow": value = moment().add("d", 1).format(dateFormat); break;
+                    case "yesterday": value = moment().subtract("d", 1).format(dateFormat); break;
+                    default:
+                        value = moment(value, "DD/MM/YYYY").format(dateFormat);
+                        if (!moment(value).isValid()) { value = undefined; }
+                        break;
+                }
+                break;
+            case EFormat.boolean: value = Option(expression, "false", ["true", "yes", "1"]) !== "false"; break;
+            case EFormat.object: value = angular.fromJson(angular.toJson(value)); break;
+            default: value = String(expression); break;
+        }
+        return IfBlank(value, defaultValue);
+    }
+    export module Context {
         export interface IScope extends angular.IScope { }
         export class Controller {
             static $inject: string[] = ["$scope"];
@@ -35,31 +62,132 @@ module Axe {
             addProcedure = (procedure: Procedure.Controller) => {
                 this.$procedures[procedure.alias] = procedure;
             }
+            removeProcedure = (alias: string) => {
+                if (angular.isDefined(this.$procedures[alias])) { delete this.$procedures[alias]; }
+            }
+            procedure = (alias: string): Procedure.Controller => { return this.$procedures[alias]; }
         }
     }
     export module Procedure {
-        export enum ERunType { manual = 1, auto, once }
-        export enum EModelType { array = 1, singleton, object }
+        export enum ERunType { manual, auto, once }
+        export enum EModelType { array, singleton, object }
         export interface IScope extends angular.IScope {
-            name: string; alias: string; run: string; model: string; type: string; root: string;
+            name: string; alias: string; run: string; model: string; type: string; root: string; routeParams: string;
         }
         export class Controller {
-            static $inject: string[] = ["$scope"];
-            constructor(private $scope: IScope) { }
+            private $parameters: { [name: string]: Parameter.Controller; } = {};
+            addParameter = (parameter: Parameter.Controller) => {
+                this.$parameters[parameter.name] = parameter;
+            }
+            removeParameter = (name: string) => {
+                if (angular.isDefined(this.$parameters[name])) { delete this.$parameters[name]; }
+            }
+            static $inject: string[] = ["$scope", "$routeParams", "$parse"];
+            constructor(
+                private $scope: IScope,
+                private $routeParams: angular.route.IRouteParamsService,
+                private $parse: angular.IParseService) {
+                if (Parse(this.$scope.routeParams, EFormat.boolean)) {
+                    angular.forEach(this.$routeParams, (value: string, key: string) => {
+                        var $scope: Parameter.IScope = <Parameter.IScope>this.$scope.$parent.$new(true);
+                        $scope.name = key;
+                        $scope.required = "true";
+                        this.addParameter(new Parameter.Controller($scope, this.$routeParams, this.$parse));
+                    });
+                }
+            }
             get name(): string { return IfBlank(this.$scope.name); }
             get alias(): string { return IfBlank(this.$scope.alias, this.name); }
-            get runType(): ERunType { return IfBlank(ERunType[this.$scope.type], ERunType.manual); }
+            get runType(): ERunType { return IfBlank(ERunType[Option(this.$scope.run)], ERunType.manual); }
             get hasModel(): boolean { return !IsBlank(this.$scope.model); }
             get modelExpression(): string { return IfBlank(this.$scope.model); }
-            get modelType(): string {
-                if (!this.hasModel) { return "none"; }
-                if (IsBlank(this.$scope.type)) { return (IfBlank(this.$scope.root)) ? "array" : "object"; }
-                return Option(this.$scope.type, "array", ["singleton", "object"]);
+            get modelType(): EModelType {
+                if (!this.hasModel) { return undefined; }
+                if (IsBlank(this.$scope.type)) { return (IsBlank(this.$scope.root)) ? EModelType.array : EModelType.object; }
+                return IfBlank(EModelType[Option(this.$scope.type)], EModelType.array);
             }
-            get objectRoot(): string { return (this.modelType === "object") ? this.$scope.root : undefined; }
+            get objectRoot(): string { return (this.modelType === EModelType.object) ? this.$scope.root : undefined; }
+        }
+    }
+    export module Parameter {
+        export enum EType { route, scope, value }
+        export interface IScope extends angular.IScope {
+            name: string; type: string; value: string; format: string; required: string;
+        }
+        export class Controller {
+            static $inject: string[] = ["$scope", "$routeParams", "$parse"];
+            constructor(
+                private $scope: IScope,
+                private $routeParams: angular.route.IRouteParamsService,
+                private $parse: angular.IParseService) { }
+            get name(): string { return IfBlank(this.$scope.name); }
+            get type(): EType {
+                if (IsBlank(this.$scope.type)) { return (IsBlank(this.$scope.value)) ? EType.route : EType.value; }
+                return EType[Option(this.$scope.type, EType[EType.value], [EType[EType.route], EType[EType.scope]])];
+            }
+            get valueExpression(): string {
+                if (IsBlank(this.$scope.value)) { return (this.type === EType.route) ? this.name : undefined; }
+                return this.$scope.value;
+            }
+            get format(): EFormat {
+                return IfBlank(EFormat[Option(this.$scope.format)], EFormat.text);
+            }
+            get value(): any {
+                if (IsBlank(this.valueExpression)) { return null; }
+                var value: any = undefined;
+                switch (this.type) {
+                    case EType.route: value = this.$routeParams[this.valueExpression]; break;
+                    case EType.scope: value = this.$parse(this.valueExpression)(this.$scope.$parent); break;
+                    default: value = this.valueExpression; break;
+                }
+                return Parse(value, this.format, null);
+            }
+            get required(): boolean {
+                return Boolean(Parse(this.$scope.required, EFormat.boolean));
+            }
         }
     }
 }
 
-
 var axe = angular.module("axe", ["ngRoute"]);
+
+axe.directive("axeContext", function () {
+    return {
+        restrict: "E",
+        controller: Axe.Context.Controller
+    };
+});
+
+axe.directive("axeProcedure", function () {
+    return {
+        restrict: "E",
+        scope: <Axe.Procedure.IScope> { name: "@", alias: "@", run: "@", model: "@", type: "@", root: "@", routeParams: "@" },
+        controller: Axe.Procedure.Controller,
+        require: ["^axeContext", "axeProcedure"],
+        link: function (
+            $scope: Axe.Parameter.IScope,
+            iElement: angular.IAugmentedJQuery,
+            iAttrs: angular.IAttributes,
+            controllers: [Axe.Context.Controller, Axe.Procedure.Controller]) {
+            controllers[0].addProcedure(controllers[1]);
+            $scope.$on("$destroy", () => { controllers[0].removeProcedure(controllers[1].alias); });
+        }
+    };
+});
+
+axe.directive("axeParameter", function () {
+    return {
+        restrict: "E",
+        scope: <Axe.Parameter.IScope> { name: "@", type: "@", value: "@", format: "@", required: "@" },
+        controller: Axe.Parameter.Controller,
+        require: ["^axeProcedure", "axeParameter"],
+        link: function (
+            $scope: Axe.Parameter.IScope,
+            iElement: angular.IAugmentedJQuery,
+            iAttrs: angular.IAttributes,
+            controllers: [Axe.Procedure.Controller, Axe.Parameter.Controller]) {
+            controllers[0].addParameter(controllers[1]);
+            $scope.$on("$destroy", () => { controllers[0].removeParameter(controllers[1].name); });
+        }
+    };
+});

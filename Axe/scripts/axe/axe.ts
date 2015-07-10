@@ -74,19 +74,19 @@ module Axe {
         export interface IScope extends angular.IScope {
             name: string; alias: string; run: string; model: string; type: string; root: string; routeParams: string;
         }
+        interface IPostParameter {
+            name: string; value: any; object: boolean;
+        }
+        interface IPostProcedure {
+            name: string; parameters: IPostParameter[]; object: boolean; objectRoot: string;
+        }
         export class Controller {
-            private $parameters: { [name: string]: Parameter.Controller; } = {};
-            addParameter = (parameter: Parameter.Controller) => {
-                this.$parameters[parameter.name] = parameter;
-            }
-            removeParameter = (name: string) => {
-                if (angular.isDefined(this.$parameters[name])) { delete this.$parameters[name]; }
-            }
-            static $inject: string[] = ["$scope", "$routeParams", "$parse"];
+            static $inject: string[] = ["$scope", "$routeParams", "$parse", "$log"];
             constructor(
                 private $scope: IScope,
                 private $routeParams: angular.route.IRouteParamsService,
-                private $parse: angular.IParseService) {
+                private $parse: angular.IParseService,
+                private $log: angular.ILogService) {
                 if (Parse(this.$scope.routeParams, EFormat.boolean)) {
                     angular.forEach(this.$routeParams, (value: string, key: string) => {
                         var $scope: Parameter.IScope = <Parameter.IScope>this.$scope.$parent.$new(true);
@@ -107,6 +107,41 @@ module Axe {
                 return IfBlank(EModelType[Option(this.$scope.type)], EModelType.array);
             }
             get objectRoot(): string { return (this.modelType === EModelType.object) ? this.$scope.root : undefined; }
+            private $parameters: { [name: string]: Parameter.Controller; } = {};
+            addParameter = (parameter: Parameter.Controller) => {
+                this.$parameters[parameter.name] = parameter;
+                if (this.runType === Procedure.ERunType.auto) {
+                    parameter.$unwatch = this.$scope.$watch(() => { return parameter.value; },
+                        (newValue: any, oldValue: any) => {
+                            if (newValue !== oldValue) { this.execute(); }
+                        });
+                }
+            }
+            removeParameter = (name: string) => {
+                if (angular.isDefined(this.$parameters[name])) {
+                    if (angular.isFunction(this.$parameters[name].$unwatch)) { this.$parameters[name].$unwatch(); }
+                    delete this.$parameters[name];
+                }
+            }
+            execute = () => {
+                var hasRequired: boolean = true;
+                var procedure: IPostProcedure = {
+                    name: this.name, parameters: [],
+                    object: this.modelType === EModelType.object,
+                    objectRoot: this.objectRoot
+                };
+                angular.forEach(this.$parameters, (parameter: Parameter.Controller, key: string) => {
+                    if (parameter.required && IsBlank(parameter.value)) { hasRequired = false; }
+                    procedure.parameters.push({
+                        name: parameter.name,
+                        value: parameter.value,
+                        object: parameter.format === EFormat.object
+                    });
+                });
+                if (hasRequired) {
+                    this.$log.debug(angular.toJson(procedure, true));
+                }
+            }
         }
     }
     export module Parameter {
@@ -145,6 +180,7 @@ module Axe {
             get required(): boolean {
                 return Boolean(Parse(this.$scope.required, EFormat.boolean));
             }
+            public $unwatch: any = undefined;
         }
     }
 }
@@ -171,6 +207,7 @@ axe.directive("axeProcedure", function () {
             controllers: [Axe.Context.Controller, Axe.Procedure.Controller]) {
             controllers[0].addProcedure(controllers[1]);
             $scope.$on("$destroy", () => { controllers[0].removeProcedure(controllers[1].alias); });
+            controllers[1].execute();
         }
     };
 });

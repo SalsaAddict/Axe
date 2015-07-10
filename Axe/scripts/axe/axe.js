@@ -147,18 +147,50 @@ var Axe;
         })(Procedure.EModelType || (Procedure.EModelType = {}));
         var EModelType = Procedure.EModelType;
         var Controller = (function () {
-            function Controller($scope, $routeParams, $parse) {
+            function Controller($scope, $routeParams, $parse, $log) {
                 var _this = this;
                 this.$scope = $scope;
                 this.$routeParams = $routeParams;
                 this.$parse = $parse;
+                this.$log = $log;
                 this.$parameters = {};
                 this.addParameter = function (parameter) {
                     _this.$parameters[parameter.name] = parameter;
+                    if (_this.runType === Procedure.ERunType.auto) {
+                        parameter.$unwatch = _this.$scope.$watch(function () { return parameter.value; }, function (newValue, oldValue) {
+                            if (newValue !== oldValue) {
+                                _this.execute();
+                            }
+                        });
+                    }
                 };
                 this.removeParameter = function (name) {
                     if (angular.isDefined(_this.$parameters[name])) {
+                        if (angular.isFunction(_this.$parameters[name].$unwatch)) {
+                            _this.$parameters[name].$unwatch();
+                        }
                         delete _this.$parameters[name];
+                    }
+                };
+                this.execute = function () {
+                    var hasRequired = true;
+                    var procedure = {
+                        name: _this.name, parameters: [],
+                        object: _this.modelType === EModelType.object,
+                        objectRoot: _this.objectRoot
+                    };
+                    angular.forEach(_this.$parameters, function (parameter, key) {
+                        if (parameter.required && IsBlank(parameter.value)) {
+                            hasRequired = false;
+                        }
+                        procedure.parameters.push({
+                            name: parameter.name,
+                            value: parameter.value,
+                            object: parameter.format === EFormat.object
+                        });
+                    });
+                    if (hasRequired) {
+                        _this.$log.debug(angular.toJson(procedure, true));
                     }
                 };
                 if (Parse(this.$scope.routeParams, EFormat.boolean)) {
@@ -213,7 +245,7 @@ var Axe;
                 enumerable: true,
                 configurable: true
             });
-            Controller.$inject = ["$scope", "$routeParams", "$parse"];
+            Controller.$inject = ["$scope", "$routeParams", "$parse", "$log"];
             return Controller;
         })();
         Procedure.Controller = Controller;
@@ -231,6 +263,7 @@ var Axe;
                 this.$scope = $scope;
                 this.$routeParams = $routeParams;
                 this.$parse = $parse;
+                this.$unwatch = undefined;
             }
             Object.defineProperty(Controller.prototype, "name", {
                 get: function () { return IfBlank(this.$scope.name); },
@@ -315,6 +348,7 @@ axe.directive("axeProcedure", function () {
         link: function ($scope, iElement, iAttrs, controllers) {
             controllers[0].addProcedure(controllers[1]);
             $scope.$on("$destroy", function () { controllers[0].removeProcedure(controllers[1].alias); });
+            controllers[1].execute();
         }
     };
 });

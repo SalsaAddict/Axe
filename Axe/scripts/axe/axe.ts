@@ -54,18 +54,26 @@ module Axe {
         return IfBlank(value, defaultValue);
     }
     export module Context {
-        export interface IScope extends angular.IScope { }
+        export interface IParentScope extends angular.IScope { axe: { execute: Function; } }
+        export interface IScope extends angular.IScope { heading: string; }
         export class Controller {
-            static $inject: string[] = ["$scope"];
-            constructor(private $scope: IScope) { }
+            get heading(): string { return IfBlank(this.$scope.heading); }
             private $procedures: { [alias: string]: Procedure.Controller; } = {};
             addProcedure = (procedure: Procedure.Controller) => {
                 this.$procedures[procedure.alias] = procedure;
+                if (procedure.runType !== Procedure.ERunType.manual) { procedure.execute(); }
             }
             removeProcedure = (alias: string) => {
                 if (angular.isDefined(this.$procedures[alias])) { delete this.$procedures[alias]; }
             }
-            procedure = (alias: string): Procedure.Controller => { return this.$procedures[alias]; }
+            execute: Function = undefined;
+            static $inject: string[] = ["$scope"];
+            constructor(private $scope: IScope) {
+                (<IParentScope>this.$scope.$parent).axe = { execute: undefined };
+                this.execute = (<IParentScope>this.$scope.$parent).axe.execute = (alias: string) => {
+                    this.$procedures[alias].execute();
+                };
+            }
         }
     }
     export module Procedure {
@@ -81,21 +89,6 @@ module Axe {
             name: string; parameters: IPostParameter[]; object: boolean; objectRoot: string;
         }
         export class Controller {
-            static $inject: string[] = ["$scope", "$routeParams", "$parse", "$log"];
-            constructor(
-                private $scope: IScope,
-                private $routeParams: angular.route.IRouteParamsService,
-                private $parse: angular.IParseService,
-                private $log: angular.ILogService) {
-                if (Parse(this.$scope.routeParams, EFormat.boolean)) {
-                    angular.forEach(this.$routeParams, (value: string, key: string) => {
-                        var $scope: Parameter.IScope = <Parameter.IScope>this.$scope.$parent.$new(true);
-                        $scope.name = key;
-                        $scope.required = "true";
-                        this.addParameter(new Parameter.Controller($scope, this.$routeParams, this.$parse));
-                    });
-                }
-            }
             get name(): string { return IfBlank(this.$scope.name); }
             get alias(): string { return IfBlank(this.$scope.alias, this.name); }
             get runType(): ERunType { return IfBlank(ERunType[Option(this.$scope.run)], ERunType.manual); }
@@ -108,21 +101,6 @@ module Axe {
             }
             get objectRoot(): string { return (this.modelType === EModelType.object) ? this.$scope.root : undefined; }
             private $parameters: { [name: string]: Parameter.Controller; } = {};
-            addParameter = (parameter: Parameter.Controller) => {
-                this.$parameters[parameter.name] = parameter;
-                if (this.runType === Procedure.ERunType.auto) {
-                    parameter.$unwatch = this.$scope.$watch(() => { return parameter.value; },
-                        (newValue: any, oldValue: any) => {
-                            if (newValue !== oldValue) { this.execute(); }
-                        });
-                }
-            }
-            removeParameter = (name: string) => {
-                if (angular.isDefined(this.$parameters[name])) {
-                    if (angular.isFunction(this.$parameters[name].$unwatch)) { this.$parameters[name].$unwatch(); }
-                    delete this.$parameters[name];
-                }
-            }
             execute = () => {
                 var hasRequired: boolean = true;
                 var procedure: IPostProcedure = {
@@ -139,7 +117,37 @@ module Axe {
                     });
                 });
                 if (hasRequired) {
-                    this.$log.debug(angular.toJson(procedure, true));
+                    this.$log.debug(angular.toJson(procedure));
+                }
+            }
+            addParameter = (parameter: Parameter.Controller) => {
+                this.$parameters[parameter.name] = parameter;
+                if (this.runType === Procedure.ERunType.auto) {
+                    parameter.$watch = this.$scope.$watch(function () { return angular.toJson(parameter.value); },
+                        (newValue: any, oldValue: any) => {
+                            if (newValue !== oldValue) { this.execute(); }
+                        });
+                }
+            }
+            removeParameter = (name: string) => {
+                if (angular.isDefined(this.$parameters[name])) {
+                    if (angular.isFunction(this.$parameters[name].$watch)) { this.$parameters[name].$watch(); }
+                    delete this.$parameters[name];
+                }
+            }
+            static $inject: string[] = ["$scope", "$routeParams", "$parse", "$log"];
+            constructor(
+                private $scope: IScope,
+                private $routeParams: angular.route.IRouteParamsService,
+                private $parse: angular.IParseService,
+                private $log: angular.ILogService) {
+                if (Parse(this.$scope.routeParams, EFormat.boolean)) {
+                    angular.forEach(this.$routeParams, (value: string, key: string) => {
+                        var $scope: Parameter.IScope = <Parameter.IScope>this.$scope.$parent.$new(true);
+                        $scope.name = key;
+                        $scope.required = "true";
+                        this.addParameter(new Parameter.Controller($scope, this.$routeParams, this.$parse));
+                    });
                 }
             }
         }
@@ -150,11 +158,6 @@ module Axe {
             name: string; type: string; value: string; format: string; required: string;
         }
         export class Controller {
-            static $inject: string[] = ["$scope", "$routeParams", "$parse"];
-            constructor(
-                private $scope: IScope,
-                private $routeParams: angular.route.IRouteParamsService,
-                private $parse: angular.IParseService) { }
             get name(): string { return IfBlank(this.$scope.name); }
             get type(): EType {
                 if (IsBlank(this.$scope.type)) { return (IsBlank(this.$scope.value)) ? EType.route : EType.value; }
@@ -180,17 +183,59 @@ module Axe {
             get required(): boolean {
                 return Boolean(Parse(this.$scope.required, EFormat.boolean));
             }
-            public $unwatch: any = undefined;
+            public $watch: any = undefined;
+            static $inject: string[] = ["$scope", "$routeParams", "$parse"];
+            constructor(
+                private $scope: IScope,
+                private $routeParams: angular.route.IRouteParamsService,
+                private $parse: angular.IParseService) { }
         }
+    }
+    export module Form {
+        export interface IScope extends angular.IScope {
+            heading: string; subheading: string;
+            back: string; load: string; save: string; delete: string;
+        }
+        export class Controller {
+            static $inject: string[] = ["$scope", "$window", "$location", "$route"];
+            constructor(
+                private $scope: IScope,
+                private $window: angular.IWindowService,
+                private $location: angular.ILocationService,
+                private $route: angular.route.IRouteService) { }
+            public context: Context.Controller = undefined;
+            get heading(): string { return IfBlank(this.$scope.heading); }
+            get subheading(): string { return IfBlank(this.$scope.subheading); }
+            public back = () => {
+                if (IsBlank(this.$scope.back)) {
+                    this.$window.history.back();
+                } else {
+                    this.$location.path(this.$scope.back);
+                }
+            }
+            get loadProcedure(): string { return IfBlank(this.$scope.load); }
+            get editable(): boolean { return !IsBlank(this.$scope.save); }
+            public undo = () => { this.$route.reload(); }
+            public save = () => { this.context.execute(this.$scope.save); }
+            get deleteable(): boolean { return !IsBlank(this.$scope.delete); }
+            public delete = () => { this.context.execute(this.$scope.delete); }
+        }
+
     }
 }
 
-var axe = angular.module("axe", ["ngRoute"]);
+var axe = angular.module("axe", ["ngRoute",
+    "templates/axeContext.html",
+    "templates/axeForm.html"]);
 
 axe.directive("axeContext", function () {
     return {
         restrict: "E",
-        controller: Axe.Context.Controller
+        templateUrl: "templates/axeContext.html",
+        transclude: true,
+        scope: <Axe.Context.IScope> { heading: "@" },
+        controller: Axe.Context.Controller,
+        controllerAs: "axeContext"
     };
 });
 
@@ -207,7 +252,6 @@ axe.directive("axeProcedure", function () {
             controllers: [Axe.Context.Controller, Axe.Procedure.Controller]) {
             controllers[0].addProcedure(controllers[1]);
             $scope.$on("$destroy", () => { controllers[0].removeProcedure(controllers[1].alias); });
-            controllers[1].execute();
         }
     };
 });
@@ -228,3 +272,63 @@ axe.directive("axeParameter", function () {
         }
     };
 });
+
+axe.directive("axeForm", function () {
+    return {
+        restrict: "E",
+        templateUrl: "templates/axeForm.html",
+        transclude: true,
+        scope: <Axe.Form.IScope> {
+            heading: "@", subheading: "@",
+            back: "@", load: "@", save: "@", delete: "@"
+        },
+        controller: Axe.Form.Controller,
+        controllerAs: "axeForm",
+        require: ["^axeContext", "axeForm"],
+        link: function (
+            $scope: Axe.Parameter.IScope,
+            iElement: angular.IAugmentedJQuery,
+            iAttrs: angular.IAttributes,
+            controllers: [Axe.Context.Controller, Axe.Form.Controller]) {
+            controllers[1].context = controllers[0];
+        }
+    };
+});
+
+angular.module("templates/axeContext.html", []).run(["$templateCache",
+    function ($templateCache: angular.ITemplateCacheService) {
+        $templateCache.put("templates/axeContext.html",
+            "<div ng-if=\"axeContext.heading\" class=\"text-center\">" +
+            "<h4 class=\"text-uppercase text-primary\">{{axeContext.heading}}</h4>" +
+            "</div><ng-transclude></ng-transclude>");
+    }]);
+
+angular.module("templates/axeForm.html", []).run(["$templateCache",
+    function ($templateCache: angular.ITemplateCacheService) {
+        $templateCache.put("templates/axeForm.html",
+            "<div class=\"panel panel-default\" ng-form=\"form\">" +
+            "<div ng-if=\"axeForm.heading\" class=\"panel-heading\"><h4 class=\"text-uppercase\">" +
+            "<b>{{axeForm.heading}}</b>" +
+            "<span ng-show=\"form.$dirty && form.$invalid\"> <i class=\"fa fa-exclamation-triangle text-danger\"></i></span>" +
+            "<span ng-if=\"axeForm.subheading\" class=\"small\"><br />{{axeForm.subheading}}</span>" +
+            "</h4></div>" + // panel-heading
+            "<div class=\"panel-body\" ng-transclude></div>" +
+            "<div class=\"panel-footer clearfix\">" +
+            "<div class=\"pull-right\">" +
+            "<div ng-hide=\"form.$dirty\" class=\"btn-group\">" +
+            "<button ng-if=\"axeForm.deleteable\" type=\"button\" class=\"btn btn-danger\" ng-click=\"axeForm.delete()\">" +
+            "<i class=\"fa fa-trash-o\"></i> Delete</button>" +
+            "<button type=\"button\" class=\"btn btn-default\" ng-click=\"axeForm.back()\">" +
+            "<i class=\"fa fa-chevron-circle-left\"></i> Back</button>" +
+            "</div>" + // button-group (delete/back)
+            "<div ng-show=\"form.$dirty\" class=\"btn-group\">" +
+            "<button type=\"button\" class=\"btn btn-warning\" ng-click=\"axeForm.undo()\">" +
+            "<i class=\"fa fa-undo\"></i> Undo</button>" +
+            "<button type=\"button\" class=\"btn\" ng-class=\"{'btn-primary': form.$valid, 'btn-default': form.$invalid}\" " +
+            "ng-click=\"axeForm.save()\" ng-disabled=\"form.$invalid\">" +
+            "<i class=\"fa fa-save\"></i> Save</button>" +
+            "</div>" + // button-group (undo/save)
+            "</div>" + // pull-right
+            "</div>" + // panel-footer
+            "</div>"); // panel
+    }]);

@@ -1,7 +1,7 @@
-﻿<input type="text" ng-model="Options.Model" />
-
-<axe-context>
-    <axe-procedure name="apiCountries" route-params="true" run="auto">
-        <axe-parameter name="Test" type="scope" value="Options" format="object"></axe-parameter>
-    </axe-procedure>
+﻿<axe-context heading="Binder Details">
+    <axe-procedure name="apiBinderDelete" route-params="true"></axe-procedure>
+    <axe-form heading="00000001" subheading="Pierre Henry" delete="apiBinderDelete">
+        <input type="text" class="form-control" ng-model="Test.Data" required />
+    </axe-form>
 </axe-context>
+

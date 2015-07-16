@@ -1,7 +1,14 @@
 ﻿<axe-context heading="Binder Details">
+    <axe-procedure name="apiBinder" route-params="true"></axe-procedure>
     <axe-procedure name="apiBinderDelete" route-params="true"></axe-procedure>
-    <axe-form heading="00000001" subheading="Pierre Henry" delete="apiBinderDelete">
-        <input type="text" class="form-control" ng-model="Test.Data" required />
+    <axe-form heading="This is a test!" subheading="Pierre Henry" load="apiBinder" delete="apiBinderDelete">
+        <axe-form-section heading="Second">
+            Goodbye!
+        </axe-form-section>
+        <axe-form-section heading="First" sort="1">
+            Hello!
+            <input type="text" class="form-control" ng-model="Test.Data" required />
+        </axe-form-section>
     </axe-form>
 </axe-context>
 

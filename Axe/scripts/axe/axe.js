@@ -1,5 +1,6 @@
 /// <reference path="../typings/angularjs/angular.d.ts" />
 /// <reference path="../typings/angularjs/angular-route.d.ts" />
+/// <reference path="../typings/angular-ui-bootstrap/angular-ui-bootstrap.d.ts" />
 /// <reference path="../typings/moment/moment.d.ts" />
 "use strict";
 var Axe;
@@ -61,6 +62,12 @@ var Axe;
         EFormat[EFormat["object"] = 7] = "object";
     })(Axe.EFormat || (Axe.EFormat = {}));
     var EFormat = Axe.EFormat;
+    (function (ESize) {
+        ESize[ESize["sm"] = 0] = "sm";
+        ESize[ESize["md"] = 1] = "md";
+        ESize[ESize["lg"] = 2] = "lg";
+    })(Axe.ESize || (Axe.ESize = {}));
+    var ESize = Axe.ESize;
     function Parse(expression, format, defaultValue) {
         if (defaultValue === void 0) { defaultValue = undefined; }
         if (IsBlank(expression)) {
@@ -110,12 +117,59 @@ var Axe;
         return IfBlank(value, defaultValue);
     }
     Axe.Parse = Parse;
+    var Confirm;
+    (function (Confirm) {
+        var Service = (function () {
+            function Service($modal) {
+                var _this = this;
+                this.$modal = $modal;
+                this.confirm = function (heading, message, size, yesButtonText, noButtonText) {
+                    if (size === void 0) { size = ESize.md; }
+                    if (yesButtonText === void 0) { yesButtonText = "Yes"; }
+                    if (noButtonText === void 0) { noButtonText = "No"; }
+                    return _this.$modal.open({
+                        templateUrl: "templates/axeConfirm.html",
+                        backdrop: "static",
+                        size: ESize[size],
+                        resolve: {
+                            heading: function () { return heading; },
+                            message: function () { return message; },
+                            yesButtonText: function () { return yesButtonText; },
+                            noButtonText: function () { return noButtonText; }
+                        },
+                        controller: Controller,
+                        controllerAs: "axeConfirm"
+                    });
+                };
+            }
+            Service.$inject = ["$modal"];
+            return Service;
+        })();
+        Confirm.Service = Service;
+        var Controller = (function () {
+            function Controller($scope, $modalInstance, heading, message, yesButtonText, noButtonText) {
+                var _this = this;
+                this.$scope = $scope;
+                this.$modalInstance = $modalInstance;
+                this.heading = heading;
+                this.message = message;
+                this.yesButtonText = yesButtonText;
+                this.noButtonText = noButtonText;
+                this.yes = function () { _this.$modalInstance.close(); };
+                this.no = function () { _this.$modalInstance.dismiss(); };
+            }
+            Controller.$inject = ["$scope", "$modalInstance", "heading", "message", "yesButtonText", "noButtonText"];
+            return Controller;
+        })();
+        Confirm.Controller = Controller;
+    })(Confirm = Axe.Confirm || (Axe.Confirm = {}));
     var Context;
     (function (Context) {
         var Controller = (function () {
-            function Controller($scope) {
+            function Controller($scope, $log) {
                 var _this = this;
                 this.$scope = $scope;
+                this.$log = $log;
                 this.$procedures = {};
                 this.addProcedure = function (procedure) {
                     _this.$procedures[procedure.alias] = procedure;
@@ -131,7 +185,12 @@ var Axe;
                 this.execute = undefined;
                 this.$scope.$parent.axe = { execute: undefined };
                 this.execute = this.$scope.$parent.axe.execute = function (alias) {
-                    _this.$procedures[alias].execute();
+                    if (angular.isDefined(_this.$procedures[alias])) {
+                        _this.$procedures[alias].execute();
+                    }
+                    else {
+                        $log.error("Axe.Context.Execute: \"" + alias + "\" has not been defined");
+                    }
                 };
             }
             Object.defineProperty(Controller.prototype, "heading", {
@@ -139,7 +198,7 @@ var Axe;
                 enumerable: true,
                 configurable: true
             });
-            Controller.$inject = ["$scope"];
+            Controller.$inject = ["$scope", "$log"];
             return Controller;
         })();
         Context.Controller = Controller;
@@ -346,12 +405,14 @@ var Axe;
     var Form;
     (function (Form) {
         var Controller = (function () {
-            function Controller($scope, $window, $location, $route) {
+            function Controller($scope, $window, $location, $route, $filter, $axeConfirm) {
                 var _this = this;
                 this.$scope = $scope;
                 this.$window = $window;
                 this.$location = $location;
                 this.$route = $route;
+                this.$filter = $filter;
+                this.$axeConfirm = $axeConfirm;
                 this.context = undefined;
                 this.back = function () {
                     if (IsBlank(_this.$scope.back)) {
@@ -361,9 +422,21 @@ var Axe;
                         _this.$location.path(_this.$scope.back);
                     }
                 };
-                this.undo = function () { _this.$route.reload(); };
+                this.reload = function () { if (!IsBlank(_this.$scope.load)) {
+                    _this.context.execute(_this.$scope.load);
+                } };
+                this.undo = function () {
+                    _this.$axeConfirm.confirm("Undo Changes", "Are you sure?", ESize.sm)
+                        .result.then(function () { _this.$route.reload(); });
+                };
                 this.save = function () { _this.context.execute(_this.$scope.save); };
                 this.delete = function () { _this.context.execute(_this.$scope.delete); };
+                this.$sections = [];
+                this.addSection = function (section) { section.$index = _this.$sections.push(section) - 1; };
+                this.activateSection = function (section) {
+                    angular.forEach(_this.$sections, function (item) { item.$active = false; });
+                    section.$active = true;
+                };
             }
             Object.defineProperty(Controller.prototype, "heading", {
                 get: function () { return IfBlank(this.$scope.heading); },
@@ -372,11 +445,6 @@ var Axe;
             });
             Object.defineProperty(Controller.prototype, "subheading", {
                 get: function () { return IfBlank(this.$scope.subheading); },
-                enumerable: true,
-                configurable: true
-            });
-            Object.defineProperty(Controller.prototype, "loadProcedure", {
-                get: function () { return IfBlank(this.$scope.load); },
                 enumerable: true,
                 configurable: true
             });
@@ -390,15 +458,67 @@ var Axe;
                 enumerable: true,
                 configurable: true
             });
-            Controller.$inject = ["$scope", "$window", "$location", "$route"];
+            Object.defineProperty(Controller.prototype, "dirty", {
+                get: function () { return this.$scope.form.$dirty; },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(Controller.prototype, "invalid", {
+                get: function () { return this.$scope.form.$invalid; },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(Controller.prototype, "valid", {
+                get: function () { return this.$scope.form.$valid; },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(Controller.prototype, "showErrors", {
+                get: function () { return this.$scope.form.$dirty && this.$scope.form.$invalid; },
+                enumerable: true,
+                configurable: true
+            });
+            Object.defineProperty(Controller.prototype, "sections", {
+                get: function () { return this.$filter("orderBy")(this.$sections, ["sortOrder", "$index"]); },
+                enumerable: true,
+                configurable: true
+            });
+            Controller.$inject = ["$scope", "$window", "$location", "$route", "$filter", "$axeConfirm"];
             return Controller;
         })();
         Form.Controller = Controller;
+        var Section;
+        (function (Section) {
+            var Controller = (function () {
+                function Controller($scope) {
+                    this.$scope = $scope;
+                    this.$index = 0;
+                    this.$active = false;
+                }
+                Object.defineProperty(Controller.prototype, "heading", {
+                    get: function () { return IfBlank(this.$scope.heading, "Tab " + IfBlank(this.$index, 0)); },
+                    enumerable: true,
+                    configurable: true
+                });
+                Object.defineProperty(Controller.prototype, "sortOrder", {
+                    get: function () { return Parse(this.$scope.sort, EFormat.integer, 0); },
+                    enumerable: true,
+                    configurable: true
+                });
+                Controller.$inject = ["$scope"];
+                return Controller;
+            })();
+            Section.Controller = Controller;
+        })(Section = Form.Section || (Form.Section = {}));
     })(Form = Axe.Form || (Axe.Form = {}));
 })(Axe || (Axe = {}));
-var axe = angular.module("axe", ["ngRoute",
+var axe = angular.module("axe", [
+    "ngRoute", "ui.bootstrap",
+    "templates/axeConfirm.html",
     "templates/axeContext.html",
-    "templates/axeForm.html"]);
+    "templates/axeForm.html",
+    "templates/axeFormSection.html"]);
+axe.service("$axeConfirm", Axe.Confirm.Service);
 axe.directive("axeContext", function () {
     return {
         restrict: "E",
@@ -447,41 +567,82 @@ axe.directive("axeForm", function () {
         require: ["^axeContext", "axeForm"],
         link: function ($scope, iElement, iAttrs, controllers) {
             controllers[1].context = controllers[0];
+            controllers[1].reload();
+            if (controllers[1].sections.length > 0) {
+                controllers[1].activateSection(controllers[1].sections[0]);
+            }
         }
     };
 });
+axe.directive("axeFormSection", function () {
+    return {
+        restrict: "E",
+        templateUrl: "templates/axeFormSection.html",
+        transclude: true,
+        scope: { heading: "@", sort: "@" },
+        controller: Axe.Form.Section.Controller,
+        controllerAs: "axeFormSection",
+        require: ["^axeForm", "axeFormSection"],
+        link: function ($scope, iElement, iAttrs, controllers) {
+            controllers[0].addSection(controllers[1]);
+        }
+    };
+});
+angular.module("templates/axeConfirm.html", []).run(["$templateCache",
+    function ($templateCache) {
+        $templateCache.put("templates/axeConfirm.html", "<div class=\"modal-header\"><h4 class=\"text-primary\">" +
+            "<i class=\"fa fa-question-circle\"></i> {{axeConfirm.heading }}</h4></div>" +
+            "<div class=\"modal-body\"><p>{{axeConfirm.message}}</p></div>" +
+            "<div class=\"modal-footer\">" +
+            "<div class=\"btn-group axe-btn-group\">" +
+            "<button type=\"submit\" class=\"btn btn-primary\" ng-click=\"axeConfirm.yes()\">" +
+            "{{axeConfirm.yesButtonText}}</button>" +
+            "<button type=\"reset\" class=\"btn btn-default\" ng-click=\"axeConfirm.no()\">" +
+            "{{axeConfirm.noButtonText}}</button>" +
+            "</div></div>");
+    }]);
 angular.module("templates/axeContext.html", []).run(["$templateCache",
     function ($templateCache) {
         $templateCache.put("templates/axeContext.html", "<div ng-if=\"axeContext.heading\" class=\"text-center\">" +
-            "<h4 class=\"text-uppercase text-primary\">{{axeContext.heading}}</h4>" +
+            "<h4 class=\"text-primary\">{{axeContext.heading}}</h4>" +
             "</div><ng-transclude></ng-transclude>");
     }]);
 angular.module("templates/axeForm.html", []).run(["$templateCache",
     function ($templateCache) {
         $templateCache.put("templates/axeForm.html", "<div class=\"panel panel-default\" ng-form=\"form\">" +
-            "<div ng-if=\"axeForm.heading\" class=\"panel-heading\"><h4 class=\"text-uppercase\">" +
-            "<b>{{axeForm.heading}}</b>" +
-            "<span ng-show=\"form.$dirty && form.$invalid\"> <i class=\"fa fa-exclamation-triangle text-danger\"></i></span>" +
+            "<div ng-if=\"axeForm.heading\" class=\"panel-heading\"><h4>" +
+            "{{axeForm.heading}}" +
+            "<span ng-show=\"axeForm.showErrors\"> <i class=\"fa fa-exclamation-triangle text-danger\"></i></span>" +
             "<span ng-if=\"axeForm.subheading\" class=\"small\"><br />{{axeForm.subheading}}</span>" +
             "</h4></div>" +
-            "<div class=\"panel-body\" ng-transclude></div>" +
+            "<div class=\"panel-body\">" +
+            "<ul ng-if=\"axeForm.sections.length > 1\" class=\"nav nav-tabs\">" +
+            "<li ng-repeat=\"section in axeForm.sections\" ng-class=\"{active: section.$active}\" " +
+            "ng-click=\"axeForm.activateSection(section)\"><a href>{{section.heading}}</a></li>" +
+            "</ul>" +
+            "<br /><ng-transclude></ng-transclude>" +
+            "</div>" +
             "<div class=\"panel-footer clearfix\">" +
             "<div class=\"pull-right\">" +
-            "<div ng-hide=\"form.$dirty\" class=\"btn-group\">" +
+            "<div ng-hide=\"axeForm.dirty\" class=\"btn-group axe-btn-group\">" +
             "<button ng-if=\"axeForm.deleteable\" type=\"button\" class=\"btn btn-danger\" ng-click=\"axeForm.delete()\">" +
             "<i class=\"fa fa-trash-o\"></i> Delete</button>" +
             "<button type=\"button\" class=\"btn btn-default\" ng-click=\"axeForm.back()\">" +
             "<i class=\"fa fa-chevron-circle-left\"></i> Back</button>" +
             "</div>" +
-            "<div ng-show=\"form.$dirty\" class=\"btn-group\">" +
+            "<div ng-show=\"axeForm.dirty\" class=\"btn-group axe-btn-group\">" +
             "<button type=\"button\" class=\"btn btn-warning\" ng-click=\"axeForm.undo()\">" +
             "<i class=\"fa fa-undo\"></i> Undo</button>" +
-            "<button type=\"button\" class=\"btn\" ng-class=\"{'btn-primary': form.$valid, 'btn-default': form.$invalid}\" " +
-            "ng-click=\"axeForm.save()\" ng-disabled=\"form.$invalid\">" +
+            "<button type=\"button\" class=\"btn\" ng-class=\"{'btn-primary': axeForm.valid, 'btn-default': axeForm.invalid}\" " +
+            "ng-click=\"axeForm.save()\" ng-disabled=\"axeForm.invalid\">" +
             "<i class=\"fa fa-save\"></i> Save</button>" +
             "</div>" +
             "</div>" +
             "</div>" +
             "</div>"); // panel
+    }]);
+angular.module("templates/axeFormSection.html", []).run(["$templateCache",
+    function ($templateCache) {
+        $templateCache.put("templates/axeFormSection.html", "<div ng-show=\"axeFormSection.$active\" ng-form=\"form\" ng-transclude></div>");
     }]);
 //# sourceMappingURL=axe.js.map

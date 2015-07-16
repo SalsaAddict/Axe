@@ -59,9 +59,23 @@
     <Reference Include="System.EnterpriseServices" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="scripts\angular.min.js.map" />
+    <Content Include="content\axe.css" />
+    <Content Include="content\axe.min.css">
+      <DependentUpon>axe.css</DependentUpon>
+    </Content>
+    <Content Include="content\bootstrap.yeti.css" />
+    <Content Include="content\bootstrap.yeti.min.css" />
+    <Content Include="content\ui-bootstrap-csp.css" />
     <Content Include="packages.config" />
-    <Content Include="scripts\angular-route.min.js.map" />
+    <Content Include="scripts\angular-mocks.js" />
+    <Content Include="scripts\angular-route.js" />
+    <Content Include="scripts\angular-route.min.js" />
+    <Content Include="scripts\angular-ui\ui-bootstrap-tpls.js" />
+    <Content Include="scripts\angular-ui\ui-bootstrap-tpls.min.js" />
+    <Content Include="scripts\angular-ui\ui-bootstrap.js" />
+    <Content Include="scripts\angular-ui\ui-bootstrap.min.js" />
+    <Content Include="scripts\angular.js" />
+    <Content Include="scripts\angular.min.js" />
     <Content Include="scripts\axe\axe.js.map" />
     <Content Include="scripts\axe\axe.min.js.map">
       <DependentUpon>axe.min.js</DependentUpon>
@@ -70,39 +84,9 @@
     <Content Include="scripts\axe\advent.min.js.map">
       <DependentUpon>advent.min.js</DependentUpon>
     </Content>
-    <None Include="Web.Debug.config">
-      <DependentUpon>Web.config</DependentUpon>
-    </None>
-    <None Include="Web.Release.config">
-      <DependentUpon>Web.config</DependentUpon>
-    </None>
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="content\bootstrap-theme.css" />
-    <Content Include="content\bootstrap-theme.min.css" />
-    <Content Include="content\bootstrap.css" />
-    <Content Include="content\bootstrap.min.css" />
-    <Content Include="content\font-awesome.css" />
-    <Content Include="content\font-awesome.min.css" />
-    <Content Include="fonts\fontawesome-webfont.svg" />
-    <Content Include="fonts\glyphicons-halflings-regular.svg" />
-    <Content Include="Icon.png" />
-    <Content Include="main.html" />
-    <Content Include="scripts\angular-mocks.js" />
-    <Content Include="scripts\angular-route.js" />
-    <Content Include="scripts\angular-route.min.js" />
-    <Content Include="scripts\angular.js" />
-    <Content Include="scripts\angular.min.js" />
-    <Content Include="scripts\axe\advent.js" />
-    <Content Include="scripts\axe\advent.min.js">
-      <DependentUpon>advent.js</DependentUpon>
-    </Content>
-    <Content Include="scripts\axe\axe.js" />
-    <Content Include="scripts\axe\axe.min.js">
-      <DependentUpon>axe.js</DependentUpon>
-    </Content>
-    <Content Include="scripts\bootstrap.js" />
-    <Content Include="scripts\bootstrap.min.js" />
+    <Content Include="scripts\angular.min.js.map" />
+    <Content Include="scripts\angular-route.min.js.map" />
+    <None Include="scripts\jquery-2.1.4.intellisense.js" />
     <Content Include="scripts\i18n\angular-locale_aa-dj.js" />
     <Content Include="scripts\i18n\angular-locale_aa-er.js" />
     <Content Include="scripts\i18n\angular-locale_aa-et.js" />
@@ -846,6 +830,37 @@
     <Content Include="scripts\i18n\angular-locale_zh.js" />
     <Content Include="scripts\i18n\angular-locale_zu-za.js" />
     <Content Include="scripts\i18n\angular-locale_zu.js" />
+    <Content Include="scripts\jquery-2.1.4.js" />
+    <Content Include="scripts\jquery-2.1.4.min.js" />
+    <Content Include="scripts\jquery-2.1.4.min.map" />
+    <None Include="Web.Debug.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+    <None Include="Web.Release.config">
+      <DependentUpon>Web.config</DependentUpon>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="content\bootstrap-theme.css" />
+    <Content Include="content\bootstrap-theme.min.css" />
+    <Content Include="content\bootstrap.css" />
+    <Content Include="content\bootstrap.min.css" />
+    <Content Include="content\font-awesome.css" />
+    <Content Include="content\font-awesome.min.css" />
+    <Content Include="fonts\fontawesome-webfont.svg" />
+    <Content Include="fonts\glyphicons-halflings-regular.svg" />
+    <Content Include="Icon.png" />
+    <Content Include="main.html" />
+    <Content Include="scripts\axe\advent.js" />
+    <Content Include="scripts\axe\advent.min.js">
+      <DependentUpon>advent.js</DependentUpon>
+    </Content>
+    <Content Include="scripts\axe\axe.js" />
+    <Content Include="scripts\axe\axe.min.js">
+      <DependentUpon>axe.js</DependentUpon>
+    </Content>
+    <Content Include="scripts\bootstrap.js" />
+    <Content Include="scripts\bootstrap.min.js" />
     <Content Include="fonts\glyphicons-halflings-regular.woff2" />
     <Content Include="fonts\glyphicons-halflings-regular.woff" />
     <Content Include="fonts\glyphicons-halflings-regular.ttf" />
@@ -856,9 +871,6 @@
     <Content Include="fonts\fontawesome-webfont.ttf" />
     <Content Include="fonts\fontawesome-webfont.eot" />
     <Content Include="fonts\FontAwesome.otf" />
-    <None Include="scripts\jquery-1.9.1.intellisense.js" />
-    <Content Include="scripts\jquery-1.9.1.js" />
-    <Content Include="scripts\jquery-1.9.1.min.js" />
     <Content Include="scripts\moment-with-locales.js" />
     <Content Include="scripts\moment-with-locales.min.js" />
     <Content Include="scripts\moment.js" />
@@ -866,7 +878,6 @@
     <Content Include="scripts\npm.js" />
     <Content Include="views\home.html" />
     <Content Include="Web.config" />
-    <Content Include="scripts\jquery-1.9.1.min.map" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs" />
@@ -874,6 +885,7 @@
   <ItemGroup>
     <TypeScriptCompile Include="scripts\axe\advent.ts" />
     <TypeScriptCompile Include="scripts\axe\axe.ts" />
+    <TypeScriptCompile Include="scripts\typings\angular-ui-bootstrap\angular-ui-bootstrap.d.ts" />
     <TypeScriptCompile Include="scripts\typings\angularjs\angular-animate.d.ts" />
     <TypeScriptCompile Include="scripts\typings\angularjs\angular-cookies.d.ts" />
     <TypeScriptCompile Include="scripts\typings\angularjs\angular-mocks.d.ts" />

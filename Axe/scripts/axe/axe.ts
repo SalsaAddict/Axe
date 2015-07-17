@@ -30,6 +30,7 @@ module Axe {
     }
     export enum EFormat { text, integer, decimal, percent, date, time, boolean, object }
     export enum ESize { sm, md, lg }
+    export enum EContext { primary, success, warning, danger }
     export function Parse(expression: any, format: EFormat, defaultValue: any = undefined): any {
         if (IsBlank(expression)) { return defaultValue; }
         var value: any = expression;
@@ -54,6 +55,51 @@ module Axe {
             default: value = String(expression); break;
         }
         return IfBlank(value, defaultValue);
+    }
+    export module Alert {
+        export class Service {
+            static $inject: string[] = ["$modal", "$timeout"];
+            constructor(
+                private $modal: angular.ui.bootstrap.IModalService,
+                private $timeout: angular.ITimeoutService) { }
+            alert = (context: EContext, message: string, size: ESize = ESize.sm, timeout: number = 0) => {
+                var modal: angular.ui.bootstrap.IModalServiceInstance = this.$modal.open({
+                    templateUrl: "templates/axeAlert.html",
+                    backdrop: "static",
+                    size: ESize[size],
+                    resolve: { context: () => { return context; }, message: () => { return message; } },
+                    controller: Controller,
+                    controllerAs: "axeAlert"
+                });
+                if (Parse(timeout, EFormat.integer, 0) > 0) { this.$timeout(() => { modal.close(); }, timeout); }
+            }
+        }
+        export class Controller {
+            static $inject: string[] = ["$scope", "$modalInstance", "context", "message"];
+            constructor(
+                private $scope: angular.ui.bootstrap.IModalScope,
+                private $modalInstance: angular.ui.bootstrap.IModalServiceInstance,
+                public context: EContext, public message: string) {
+            }
+            get heading(): string {
+                switch (this.context) {
+                    case EContext.primary: return "Info";
+                    case EContext.success: return "Success";
+                    case EContext.warning: return "Warning";
+                    case EContext.danger: return "Error";
+                }
+            }
+            get faIcon(): string {
+                switch (this.context) {
+                    case EContext.primary: return "fa-info-circle";
+                    case EContext.success: return "fa-check-circle";
+                    case EContext.warning: return "fa-exclamation-circle";
+                    case EContext.danger: return "fa-times-circle";
+                }
+            }
+            get textContext(): string { return "text-" + EContext[this.context]; }
+            close = () => { this.$modalInstance.close(); }
+        }
     }
     export module Confirm {
         export class Service {
@@ -192,61 +238,63 @@ module Axe {
                 }
             }
         }
-    }
-    export module Parameter {
-        export enum EType { route, scope, value }
-        export interface IScope extends angular.IScope {
-            name: string; type: string; value: string; format: string; required: string;
-        }
-        export class Controller {
-            get name(): string { return IfBlank(this.$scope.name); }
-            get type(): EType {
-                if (IsBlank(this.$scope.type)) { return (IsBlank(this.$scope.value)) ? EType.route : EType.value; }
-                return EType[Option(this.$scope.type, EType[EType.value], [EType[EType.route], EType[EType.scope]])];
+        export module Parameter {
+            export enum EType { route, scope, value }
+            export interface IScope extends angular.IScope {
+                name: string; type: string; value: string; format: string; required: string;
             }
-            get valueExpression(): string {
-                if (IsBlank(this.$scope.value)) { return (this.type === EType.route) ? this.name : undefined; }
-                return this.$scope.value;
-            }
-            get format(): EFormat {
-                return IfBlank(EFormat[Option(this.$scope.format)], EFormat.text);
-            }
-            get value(): any {
-                if (IsBlank(this.valueExpression)) { return null; }
-                var value: any = undefined;
-                switch (this.type) {
-                    case EType.route: value = this.$routeParams[this.valueExpression]; break;
-                    case EType.scope: value = this.$parse(this.valueExpression)(this.$scope.$parent); break;
-                    default: value = this.valueExpression; break;
+            export class Controller {
+                get name(): string { return IfBlank(this.$scope.name); }
+                get type(): EType {
+                    if (IsBlank(this.$scope.type)) { return (IsBlank(this.$scope.value)) ? EType.route : EType.value; }
+                    return EType[Option(this.$scope.type, EType[EType.value], [EType[EType.route], EType[EType.scope]])];
                 }
-                return Parse(value, this.format, null);
+                get valueExpression(): string {
+                    if (IsBlank(this.$scope.value)) { return (this.type === EType.route) ? this.name : undefined; }
+                    return this.$scope.value;
+                }
+                get format(): EFormat {
+                    return IfBlank(EFormat[Option(this.$scope.format)], EFormat.text);
+                }
+                get value(): any {
+                    if (IsBlank(this.valueExpression)) { return null; }
+                    var value: any = undefined;
+                    switch (this.type) {
+                        case EType.route: value = this.$routeParams[this.valueExpression]; break;
+                        case EType.scope: value = this.$parse(this.valueExpression)(this.$scope.$parent); break;
+                        default: value = this.valueExpression; break;
+                    }
+                    return Parse(value, this.format, null);
+                }
+                get required(): boolean {
+                    return Boolean(Parse(this.$scope.required, EFormat.boolean));
+                }
+                public $watch: any = undefined;
+                static $inject: string[] = ["$scope", "$routeParams", "$parse"];
+                constructor(
+                    private $scope: IScope,
+                    private $routeParams: angular.route.IRouteParamsService,
+                    private $parse: angular.IParseService) { }
             }
-            get required(): boolean {
-                return Boolean(Parse(this.$scope.required, EFormat.boolean));
-            }
-            public $watch: any = undefined;
-            static $inject: string[] = ["$scope", "$routeParams", "$parse"];
-            constructor(
-                private $scope: IScope,
-                private $routeParams: angular.route.IRouteParamsService,
-                private $parse: angular.IParseService) { }
         }
     }
     export module Form {
         export interface IScope extends angular.IScope {
             heading: string; subheading: string;
             back: string; load: string; save: string; delete: string;
+            labelWidth: string;
             form: angular.IFormController;
         }
         export class Controller {
-            static $inject: string[] = ["$scope", "$window", "$location", "$route", "$filter", "$axeConfirm"];
+            static $inject: string[] = ["$scope", "$window", "$location", "$route", "$filter", "$axeConfirm", "$axeAlert"];
             constructor(
                 private $scope: IScope,
                 private $window: angular.IWindowService,
                 private $location: angular.ILocationService,
                 private $route: angular.route.IRouteService,
                 private $filter: angular.IFilterService,
-                private $axeConfirm: Axe.Confirm.Service) { }
+                private $axeConfirm: Axe.Confirm.Service,
+                private $axeAlert: Axe.Alert.Service) { }
             public context: Context.Controller = undefined;
             get heading(): string { return IfBlank(this.$scope.heading); }
             get subheading(): string { return IfBlank(this.$scope.subheading); }
@@ -262,31 +310,81 @@ module Axe {
             get dirty(): boolean { return this.$scope.form.$dirty; }
             get invalid(): boolean { return this.$scope.form.$invalid; }
             get valid(): boolean { return this.$scope.form.$valid; }
-            get showErrors(): boolean { return this.$scope.form.$dirty && this.$scope.form.$invalid; }
+            get hasError(): boolean { return this.$scope.form.$dirty && this.$scope.form.$invalid; }
             public reload = () => { if (!IsBlank(this.$scope.load)) { this.context.execute(this.$scope.load); } }
             public undo = () => {
-                this.$axeConfirm.confirm("Undo Changes", "Are you sure?", ESize.sm)
+                this.$axeConfirm.confirm("Undo Changes", "Are you sure you want to undo your changes?", ESize.sm)
                     .result.then(() => { this.$route.reload(); });
             }
             public save = () => { this.context.execute(this.$scope.save); }
-            public delete = () => { this.context.execute(this.$scope.delete); }
+            public delete = () => {
+                this.$axeConfirm.confirm("Delete Record", "Are you sure you want to delete this record?", ESize.sm)
+                    .result.then(() => {
+                    this.context.execute(this.$scope.delete);
+                    this.$axeAlert.alert(EContext.success, "The record has been successfully deleted.", ESize.sm, 3000);
+                });
+            }
             private $sections: Section.Controller[] = [];
             get sections(): Section.Controller[] { return this.$filter("orderBy")(this.$sections, ["sortOrder", "$index"]); }
-            public addSection = (section: Section.Controller) => { section.$index = this.$sections.push(section) - 1; }
+            public addSection = (section: Section.Controller) => {
+                section.$parent = this;
+                section.$index = this.$sections.push(section) - 1;
+            }
+            public removeSection = (section: Section.Controller) => {
+                var i: number = this.$sections.indexOf(section);
+                if (i >= 0) { this.$sections.splice(i, 1); }
+            }
             public activateSection = (section: Section.Controller) => {
                 angular.forEach(this.$sections, function (item: Section.Controller) { item.$active = false; });
                 section.$active = true;
             }
+            get labelWidth(): number { return Parse(this.$scope.labelWidth, EFormat.integer, 3); }
         }
         export module Section {
             export interface IScope extends angular.IScope { heading: string; sort: string; form: angular.IFormController; }
             export class Controller {
                 static $inject: string[] = ["$scope"];
                 constructor(private $scope: IScope) { }
+                public $parent: Form.Controller = undefined;
                 public $index: number = 0;
                 public $active: boolean = false;
                 get heading(): string { return IfBlank(this.$scope.heading, "Tab " + IfBlank(this.$index, 0)); }
                 get sortOrder(): number { return Parse(this.$scope.sort, EFormat.integer, 0); }
+                get hasError(): boolean {
+                    if (this.$scope.form.$valid) { return false; }
+                    if (angular.isUndefined(this.$parent)) { return false; }
+                    return this.$parent.dirty;
+                }
+            }
+            export module Label {
+                export interface IScope extends angular.IScope {
+                    heading: string; width: string; form: angular.IFormController;
+                }
+                export class Controller {
+                    static $inject: string[] = ["$scope"];
+                    constructor(private $scope: IScope) { }
+                    public $parent: Section.Controller = undefined;
+                    get heading(): string { return IfBlank(this.$scope.heading); }
+                    get labelWidth(): number {
+                        var width: number = Parse(this.$scope.width, EFormat.integer);
+                        if (IsBlank(width)) {
+                            if (angular.isDefined(this.$parent)) {
+                                if (angular.isDefined(this.$parent.$parent)) {
+                                    width = Parse(this.$parent.$parent.labelWidth, EFormat.integer);
+                                }
+                            }
+                        }
+                        width = IfBlank(width, 3);
+                        return ((width >= 1) && (width <= 6)) ? width : 3;
+                    }
+                    get itemWidth(): number { return 12 - this.labelWidth; }
+                    get hasError(): boolean {
+                        if (this.$scope.form.$valid) { return false; }
+                        if (angular.isUndefined(this.$parent)) { return false; }
+                        if (angular.isUndefined(this.$parent.$parent)) { return false; }
+                        return this.$parent.$parent.dirty;
+                    }
+                }
             }
         }
     }
@@ -294,11 +392,14 @@ module Axe {
 
 var axe = angular.module("axe", [
     "ngRoute", "ui.bootstrap",
+    "templates/axeAlert.html",
     "templates/axeConfirm.html",
     "templates/axeContext.html",
     "templates/axeForm.html",
-    "templates/axeFormSection.html"]);
+    "templates/axeFormSection.html",
+    "templates/axeFormLabel.html"]);
 
+axe.service("$axeAlert", Axe.Alert.Service);
 axe.service("$axeConfirm", Axe.Confirm.Service);
 
 axe.directive("axeContext", function () {
@@ -319,7 +420,7 @@ axe.directive("axeProcedure", function () {
         controller: Axe.Procedure.Controller,
         require: ["^axeContext", "axeProcedure"],
         link: function (
-            $scope: Axe.Parameter.IScope,
+            $scope: Axe.Procedure.Parameter.IScope,
             iElement: angular.IAugmentedJQuery,
             iAttrs: angular.IAttributes,
             controllers: [Axe.Context.Controller, Axe.Procedure.Controller]) {
@@ -332,14 +433,14 @@ axe.directive("axeProcedure", function () {
 axe.directive("axeParameter", function () {
     return {
         restrict: "E",
-        scope: <Axe.Parameter.IScope> { name: "@", type: "@", value: "@", format: "@", required: "@" },
-        controller: Axe.Parameter.Controller,
+        scope: <Axe.Procedure.Parameter.IScope> { name: "@", type: "@", value: "@", format: "@", required: "@" },
+        controller: Axe.Procedure.Parameter.Controller,
         require: ["^axeProcedure", "axeParameter"],
         link: function (
-            $scope: Axe.Parameter.IScope,
+            $scope: Axe.Procedure.Parameter.IScope,
             iElement: angular.IAugmentedJQuery,
             iAttrs: angular.IAttributes,
-            controllers: [Axe.Procedure.Controller, Axe.Parameter.Controller]) {
+            controllers: [Axe.Procedure.Controller, Axe.Procedure.Parameter.Controller]) {
             controllers[0].addParameter(controllers[1]);
             $scope.$on("$destroy", () => { controllers[0].removeParameter(controllers[1].name); });
         }
@@ -353,13 +454,14 @@ axe.directive("axeForm", function () {
         transclude: true,
         scope: <Axe.Form.IScope> {
             heading: "@", subheading: "@",
-            back: "@", load: "@", save: "@", delete: "@"
+            back: "@", load: "@", save: "@", delete: "@",
+            labelWidth: "@"
         },
         controller: Axe.Form.Controller,
         controllerAs: "axeForm",
         require: ["^axeContext", "axeForm"],
         link: function (
-            $scope: Axe.Parameter.IScope,
+            $scope: Axe.Procedure.Parameter.IScope,
             iElement: angular.IAugmentedJQuery,
             iAttrs: angular.IAttributes,
             controllers: [Axe.Context.Controller, Axe.Form.Controller]) {
@@ -387,20 +489,85 @@ axe.directive("axeFormSection", function () {
             iAttrs: angular.IAttributes,
             controllers: [Axe.Form.Controller, Axe.Form.Section.Controller]) {
             controllers[0].addSection(controllers[1]);
+            $scope.$on("$destroy", () => { controllers[0].removeSection(controllers[1]); });
         }
     };
 });
 
+axe.directive("axeFormLabel", function () {
+    return {
+        restrict: "E",
+        templateUrl: "templates/axeFormLabel.html",
+        transclude: true,
+        scope: <Axe.Form.Section.Label.IScope> { heading: "@", width: "@" },
+        controller: Axe.Form.Section.Label.Controller,
+        controllerAs: "axeFormLabel",
+        require: ["^axeFormSection", "axeFormLabel"],
+        link: function (
+            $scope: Axe.Form.Section.IScope,
+            iElement: angular.IAugmentedJQuery,
+            iAttrs: angular.IAttributes,
+            controllers: [Axe.Form.Section.Controller, Axe.Form.Section.Label.Controller]) {
+            controllers[1].$parent = controllers[0];
+        }
+    };
+});
 
+axe.directive("axeFormInput", function () {
+    return {
+        restrict: "A",
+        require: ["ngModel"],
+        link: function (
+            $scope: angular.IScope,
+            iElement: angular.IAugmentedJQuery,
+            iAttrs: angular.IAttributes,
+            controllers: [angular.INgModelController]) {
+            if (!iElement.hasClass("form-control")) { iElement.addClass("form-control"); }
+            window.console.log(iAttrs["ngModel"]);
+        }
+    };
+});
+
+axe.directive("axeSave", function () {
+    return {
+        restrict: "A",
+        require: ["ngModel", "^axeFormLabel"],
+        link: function (
+            $scope: angular.IScope,
+            iElement: angular.IAugmentedJQuery,
+            iAttrs: angular.IAttributes,
+            controllers: [angular.INgModelController, Axe.Form.Section.Label.Controller]) {
+            var $injector: angular.auto.IInjectorService = angular.injector(["ngRoute"]);
+            var $parameterScope: Axe.Procedure.Parameter.IScope = <Axe.Procedure.Parameter.IScope>$scope.$new(true);
+            $parameterScope.name = iAttrs["axeFormLabel"];
+            $parameterScope.type = "scope";
+            $parameterScope.value = iAttrs["ngModel"];
+            if (angular.isDefined(iAttrs["required"])) { $parameterScope.required = "true"; }
+            //this.addParameter($injector.instantiate(Axe.Procedure.Parameter.Controller, { $scope: $parameterScope }));
+        }
+    };
+});
+
+angular.module("templates/axeAlert.html", []).run(["$templateCache",
+    function ($templateCache: angular.ITemplateCacheService) {
+        $templateCache.put("templates/axeAlert.html",
+            "<div class=\"modal-header\"><h4 class=\"{{axeAlert.textContext}}\">" +
+            "<i class=\"fa fa-lg {{axeAlert.faIcon}}\"></i> {{axeAlert.heading}}</h4></div>" +
+            "<div class=\"modal-body\"><p>{{axeAlert.message}}</p></div>" +
+            "<div class=\"modal-footer\">" +
+            "<div class=\"btn-group axe-btn-group\">" +
+            "<button type=\"submit\" class=\"btn btn-xs btn-default\" ng-click=\"axeAlert.close()\">Ok</button>" +
+            "</div></div>");
+    }]);
 
 angular.module("templates/axeConfirm.html", []).run(["$templateCache",
     function ($templateCache: angular.ITemplateCacheService) {
         $templateCache.put("templates/axeConfirm.html",
             "<div class=\"modal-header\"><h4 class=\"text-primary\">" +
-            "<i class=\"fa fa-question-circle\"></i> {{axeConfirm.heading }}</h4></div>" +
+            "<i class=\"fa fa-lg fa-question-circle\"></i> {{axeConfirm.heading}}</h4></div>" +
             "<div class=\"modal-body\"><p>{{axeConfirm.message}}</p></div>" +
             "<div class=\"modal-footer\">" +
-            "<div class=\"btn-group axe-btn-group\">" +
+            "<div class=\"btn-group btn-group-xs axe-btn-group\">" +
             "<button type=\"submit\" class=\"btn btn-primary\" ng-click=\"axeConfirm.yes()\">" +
             "{{axeConfirm.yesButtonText}}</button>" +
             "<button type=\"reset\" class=\"btn btn-default\" ng-click=\"axeConfirm.no()\">" +
@@ -419,18 +586,20 @@ angular.module("templates/axeContext.html", []).run(["$templateCache",
 angular.module("templates/axeForm.html", []).run(["$templateCache",
     function ($templateCache: angular.ITemplateCacheService) {
         $templateCache.put("templates/axeForm.html",
-            "<div class=\"panel panel-default\" ng-form=\"form\">" +
+            "<div class=\"panel panel-default form-horizontal\" ng-form=\"form\">" +
             "<div ng-if=\"axeForm.heading\" class=\"panel-heading\"><h4>" +
             "{{axeForm.heading}}" +
-            "<span ng-show=\"axeForm.showErrors\"> <i class=\"fa fa-exclamation-triangle text-danger\"></i></span>" +
+            "<span ng-show=\"axeForm.hasError\"> <i class=\"fa fa-exclamation-triangle text-danger\"></i></span>" +
             "<span ng-if=\"axeForm.subheading\" class=\"small\"><br />{{axeForm.subheading}}</span>" +
             "</h4></div>" + // panel-heading
             "<div class=\"panel-body\">" +
             "<ul ng-if=\"axeForm.sections.length > 1\" class=\"nav nav-tabs\">" +
             "<li ng-repeat=\"section in axeForm.sections\" ng-class=\"{active: section.$active}\" " +
-            "ng-click=\"axeForm.activateSection(section)\"><a href>{{section.heading}}</a></li>" +
+            "ng-click=\"axeForm.activateSection(section)\"><a href>{{section.heading}}" +
+            "<span ng-show=\"section.hasError\"> <i class=\"fa fa-exclamation-triangle text-danger\"></i></span>" +
+            "</a></li>" +
             "</ul>" + // section tabs
-            "<br /><ng-transclude></ng-transclude>" +
+            "<br ng-if=\"axeForm.sections.length > 1\" /><ng-transclude></ng-transclude>" +
             "</div>" + // panel-body
             "<div class=\"panel-footer clearfix\">" +
             "<div class=\"pull-right\">" +
@@ -456,4 +625,14 @@ angular.module("templates/axeFormSection.html", []).run(["$templateCache",
     function ($templateCache: angular.ITemplateCacheService) {
         $templateCache.put("templates/axeFormSection.html",
             "<div ng-show=\"axeFormSection.$active\" ng-form=\"form\" ng-transclude></div>");
+    }]);
+
+angular.module("templates/axeFormLabel.html", []).run(["$templateCache",
+    function ($templateCache: angular.ITemplateCacheService) {
+        $templateCache.put("templates/axeFormLabel.html",
+            "<div class=\"form-group\" ng-class=\"{'has-error': axeFormLabel.hasError}\" ng-form=\"form\">" +
+            "<label class=\"control-label col-sm-{{axeFormLabel.labelWidth}}\">" +
+            "{{axeFormLabel.heading}}</label>" +
+            "<div class=\"col-sm-{{axeFormLabel.itemWidth}}\" ng-transclude></div>" +
+            "</div>");
     }]);

@@ -104,7 +104,7 @@ var Axe;
                         value = moment().subtract("d", 1).format(dateFormat);
                         break;
                     default:
-                        value = moment(value, "DD/MM/YYYY").format(dateFormat);
+                        value = moment(value).format(dateFormat);
                         if (!moment(value).isValid()) {
                             value = undefined;
                         }
@@ -137,6 +137,7 @@ var Axe;
                     var modal = _this.$modal.open({
                         templateUrl: "templates/axeAlert.html",
                         backdrop: "static",
+                        keyboard: false,
                         size: ESize[size],
                         resolve: { context: function () { return context; }, message: function () { return message; } },
                         controller: Controller,
@@ -207,6 +208,7 @@ var Axe;
                     return _this.$modal.open({
                         templateUrl: "templates/axeConfirm.html",
                         backdrop: "static",
+                        keyboard: false,
                         size: ESize[size],
                         resolve: {
                             heading: function () { return heading; },
@@ -258,6 +260,12 @@ var Axe;
                     if (angular.isDefined(_this.$procedures[alias])) {
                         delete _this.$procedures[alias];
                     }
+                };
+                this.addParameter = function (procedureAlias, parameter) {
+                    _this.$procedures[procedureAlias].addParameter(parameter);
+                };
+                this.removeParameter = function (procedureAlias, parameterName) {
+                    _this.$procedures[procedureAlias].removeParameter(parameterName);
                 };
                 this.execute = undefined;
                 this.$scope.$parent.axe = { execute: undefined };
@@ -491,7 +499,7 @@ var Axe;
                 this.$filter = $filter;
                 this.$axeConfirm = $axeConfirm;
                 this.$axeAlert = $axeAlert;
-                this.context = undefined;
+                this.$parent = undefined;
                 this.back = function () {
                     if (IsBlank(_this.$scope.back)) {
                         _this.$window.history.back();
@@ -501,17 +509,17 @@ var Axe;
                     }
                 };
                 this.reload = function () { if (!IsBlank(_this.$scope.load)) {
-                    _this.context.execute(_this.$scope.load);
+                    _this.$parent.execute(_this.$scope.load);
                 } };
                 this.undo = function () {
                     _this.$axeConfirm.confirm("Undo Changes", "Are you sure you want to undo your changes?", ESize.sm)
                         .result.then(function () { _this.$route.reload(); });
                 };
-                this.save = function () { _this.context.execute(_this.$scope.save); };
+                this.save = function () { _this.$parent.execute(_this.$scope.save); };
                 this.delete = function () {
                     _this.$axeConfirm.confirm("Delete Record", "Are you sure you want to delete this record?", ESize.sm)
                         .result.then(function () {
-                        _this.context.execute(_this.$scope.delete);
+                        _this.$parent.execute(_this.$scope.delete);
                         _this.$axeAlert.alert(EContext.success, "The record has been successfully deleted.", ESize.sm, 3000);
                     });
                 };
@@ -529,6 +537,9 @@ var Axe;
                 this.activateSection = function (section) {
                     angular.forEach(_this.$sections, function (item) { item.$active = false; });
                     section.$active = true;
+                };
+                this.addSaveParameter = function (parameter) {
+                    _this.$parent.addParameter(_this.$scope.save, parameter);
                 };
             }
             Object.defineProperty(Controller.prototype, "heading", {
@@ -704,9 +715,11 @@ axe.directive("axeProcedure", function () {
         scope: { name: "@", alias: "@", run: "@", model: "@", type: "@", root: "@", routeParams: "@" },
         controller: Axe.Procedure.Controller,
         require: ["^axeContext", "axeProcedure"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            controllers[0].addProcedure(controllers[1]);
-            $scope.$on("$destroy", function () { controllers[0].removeProcedure(controllers[1].alias); });
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                controllers[0].addProcedure(controllers[1]);
+                $scope.$on("$destroy", function () { controllers[0].removeProcedure(controllers[1].alias); });
+            }
         }
     };
 });
@@ -716,9 +729,11 @@ axe.directive("axeParameter", function () {
         scope: { name: "@", type: "@", value: "@", format: "@", required: "@" },
         controller: Axe.Procedure.Parameter.Controller,
         require: ["^axeProcedure", "axeParameter"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            controllers[0].addParameter(controllers[1]);
-            $scope.$on("$destroy", function () { controllers[0].removeParameter(controllers[1].name); });
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                controllers[0].addParameter(controllers[1]);
+                $scope.$on("$destroy", function () { controllers[0].removeParameter(controllers[1].name); });
+            }
         }
     };
 });
@@ -735,11 +750,15 @@ axe.directive("axeForm", function () {
         controller: Axe.Form.Controller,
         controllerAs: "axeForm",
         require: ["^axeContext", "axeForm"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            controllers[1].context = controllers[0];
-            controllers[1].reload();
-            if (controllers[1].sections.length > 0) {
-                controllers[1].activateSection(controllers[1].sections[0]);
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                controllers[1].$parent = controllers[0];
+            },
+            post: function ($scope, iElement, iAttrs, controllers) {
+                controllers[1].reload();
+                if (controllers[1].sections.length > 0) {
+                    controllers[1].activateSection(controllers[1].sections[0]);
+                }
             }
         }
     };
@@ -753,9 +772,11 @@ axe.directive("axeFormSection", function () {
         controller: Axe.Form.Section.Controller,
         controllerAs: "axeFormSection",
         require: ["^axeForm", "axeFormSection"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            controllers[0].addSection(controllers[1]);
-            $scope.$on("$destroy", function () { controllers[0].removeSection(controllers[1]); });
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                controllers[0].addSection(controllers[1]);
+                $scope.$on("$destroy", function () { controllers[0].removeSection(controllers[1]); });
+            }
         }
     };
 });
@@ -768,8 +789,10 @@ axe.directive("axeFormLabel", function () {
         controller: Axe.Form.Section.Label.Controller,
         controllerAs: "axeFormLabel",
         require: ["^axeFormSection", "axeFormLabel"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            controllers[1].$parent = controllers[0];
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                controllers[1].$parent = controllers[0];
+            }
         }
     };
 });
@@ -777,11 +800,13 @@ axe.directive("axeFormInput", function () {
     return {
         restrict: "A",
         require: ["ngModel"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            if (!iElement.hasClass("form-control")) {
-                iElement.addClass("form-control");
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                if (!iElement.hasClass("form-control")) {
+                    iElement.addClass("form-control");
+                }
+                window.console.log(iAttrs["ngModel"]);
             }
-            window.console.log(iAttrs["ngModel"]);
         }
     };
 });
@@ -789,16 +814,19 @@ axe.directive("axeSave", function () {
     return {
         restrict: "A",
         require: ["ngModel", "^axeFormLabel"],
-        link: function ($scope, iElement, iAttrs, controllers) {
-            var $injector = angular.injector(["ngRoute"]);
-            var $parameterScope = $scope.$new(true);
-            $parameterScope.name = iAttrs["axeFormLabel"];
-            $parameterScope.type = "scope";
-            $parameterScope.value = iAttrs["ngModel"];
-            if (angular.isDefined(iAttrs["required"])) {
-                $parameterScope.required = "true";
+        link: {
+            pre: function ($scope, iElement, iAttrs, controllers) {
+                var $injector = angular.injector(["ngRoute"]);
+                var $parameterScope = $scope.$new(true);
+                $parameterScope.name = iAttrs["axeSave"];
+                $parameterScope.type = "scope";
+                $parameterScope.value = iAttrs["ngModel"];
+                $parameterScope.format = iAttrs["axeFormat"];
+                if (angular.isDefined(iAttrs["required"])) {
+                    $parameterScope.required = "true";
+                }
+                controllers[1].$parent.$parent.addSaveParameter($injector.instantiate(Axe.Procedure.Parameter.Controller, { $scope: $parameterScope }));
             }
-            //this.addParameter($injector.instantiate(Axe.Procedure.Parameter.Controller, { $scope: $parameterScope }));
         }
     };
 });

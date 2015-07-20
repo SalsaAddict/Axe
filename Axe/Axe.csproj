@@ -59,6 +59,7 @@
     <Reference Include="System.EnterpriseServices" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="App_Code\Advent.sql" />
     <Content Include="content\axe.css" />
     <Content Include="content\axe.min.css">
       <DependentUpon>axe.css</DependentUpon>

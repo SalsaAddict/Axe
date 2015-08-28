@@ -99,7 +99,11 @@ module Axe {
                 }
             }
             get textContext(): string { return "text-" + EContext[this.context]; }
-            close = () => { this.$modalInstance.close(); }
+            close = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
+                this.$modalInstance.close();
+            }
         }
     }
     export module Confirm {
@@ -134,8 +138,16 @@ module Axe {
                 public heading: string, public message: string,
                 public yesButtonText: string, public noButtonText: string) {
             }
-            yes = () => { this.$modalInstance.close(); }
-            no = () => { this.$modalInstance.dismiss(); }
+            yes = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
+                this.$modalInstance.close();
+            }
+            no = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
+                this.$modalInstance.dismiss();
+            }
         }
     }
     export module Context {
@@ -306,7 +318,9 @@ module Axe {
             public $parent: Context.Controller = undefined;
             get heading(): string { return IfBlank(this.$scope.heading); }
             get subheading(): string { return IfBlank(this.$scope.subheading); }
-            public back = () => {
+            public back = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
                 if (IsBlank(this.$scope.back)) {
                     this.$window.history.back();
                 } else {
@@ -320,12 +334,20 @@ module Axe {
             get valid(): boolean { return this.$scope.form.$valid; }
             get hasError(): boolean { return this.$scope.form.$dirty && this.$scope.form.$invalid; }
             public reload = () => { if (!IsBlank(this.$scope.load)) { this.$parent.execute(this.$scope.load); } }
-            public undo = () => {
+            public undo = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
                 this.$axeConfirm.confirm("Undo Changes", "Are you sure you want to undo your changes?", ESize.sm)
                     .result.then(() => { this.$route.reload(); });
             }
-            public save = () => { this.$parent.execute(this.$scope.save); }
-            public delete = () => {
+            public save = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
+                this.$parent.execute(this.$scope.save);
+            }
+            public delete = ($event: angular.IAngularEvent) => {
+                $event.preventDefault();
+                $event.stopPropagation();
                 this.$axeConfirm.confirm("Delete Record", "Are you sure you want to delete this record?", ESize.sm)
                     .result.then(() => {
                     this.$parent.execute(this.$scope.delete);
@@ -540,7 +562,7 @@ axe.directive("axeFormLabel", function () {
     };
 });
 
-axe.directive("axeFormInput", function () {
+axe.directive("axeFormInput", ["$log", function ($log: angular.ILogService) {
     return {
         restrict: "A",
         require: ["ngModel"],
@@ -551,11 +573,13 @@ axe.directive("axeFormInput", function () {
                 iAttrs: angular.IAttributes,
                 controllers: [angular.INgModelController]) {
                 if (!iElement.hasClass("form-control")) { iElement.addClass("form-control"); }
-                window.console.log(iAttrs["ngModel"]);
+                if (Axe.Option(iAttrs["axeFormInput"], "") === "date") {
+                    $log.debug("DATE");
+                }
             }
         }
     };
-});
+}]);
 
 axe.directive("axeSave", function () {
     return {
@@ -589,7 +613,7 @@ angular.module("templates/axeAlert.html", []).run(["$templateCache",
             "<div class=\"modal-body\"><p>{{axeAlert.message}}</p></div>" +
             "<div class=\"modal-footer\">" +
             "<div class=\"btn-group axe-btn-group\">" +
-            "<button type=\"submit\" class=\"btn btn-xs btn-default\" ng-click=\"axeAlert.close()\">Ok</button>" +
+            "<button type=\"submit\" class=\"btn btn-xs btn-default\" ng-click=\"axeAlert.close($event)\">Ok</button>" +
             "</div></div>");
     }]);
 
@@ -601,9 +625,9 @@ angular.module("templates/axeConfirm.html", []).run(["$templateCache",
             "<div class=\"modal-body\"><p>{{axeConfirm.message}}</p></div>" +
             "<div class=\"modal-footer\">" +
             "<div class=\"btn-group btn-group-xs axe-btn-group\">" +
-            "<button type=\"submit\" class=\"btn btn-primary\" ng-click=\"axeConfirm.yes()\">" +
+            "<button type=\"submit\" class=\"btn btn-primary\" ng-click=\"axeConfirm.yes($event)\">" +
             "{{axeConfirm.yesButtonText}}</button>" +
-            "<button type=\"reset\" class=\"btn btn-default\" ng-click=\"axeConfirm.no()\">" +
+            "<button type=\"reset\" class=\"btn btn-default\" ng-click=\"axeConfirm.no($event)\">" +
             "{{axeConfirm.noButtonText}}</button>" +
             "</div></div>");
     }]);
@@ -637,16 +661,16 @@ angular.module("templates/axeForm.html", []).run(["$templateCache",
             "<div class=\"panel-footer clearfix\">" +
             "<div class=\"pull-right\">" +
             "<div ng-hide=\"axeForm.dirty\" class=\"btn-group axe-btn-group\">" +
-            "<button ng-if=\"axeForm.deleteable\" type=\"button\" class=\"btn btn-danger\" ng-click=\"axeForm.delete()\">" +
+            "<button ng-if=\"axeForm.deleteable\" type=\"button\" class=\"btn btn-danger\" ng-click=\"axeForm.delete($event)\">" +
             "<i class=\"fa fa-trash-o\"></i> Delete</button>" +
-            "<button type=\"button\" class=\"btn btn-default\" ng-click=\"axeForm.back()\">" +
+            "<button type=\"button\" class=\"btn btn-default\" ng-click=\"axeForm.back($event)\">" +
             "<i class=\"fa fa-chevron-circle-left\"></i> Back</button>" +
             "</div>" + // button-group (delete/back)
             "<div ng-show=\"axeForm.dirty\" class=\"btn-group axe-btn-group\">" +
-            "<button type=\"button\" class=\"btn btn-warning\" ng-click=\"axeForm.undo()\">" +
+            "<button type=\"button\" class=\"btn btn-warning\" ng-click=\"axeForm.undo($event)\">" +
             "<i class=\"fa fa-undo\"></i> Undo</button>" +
             "<button type=\"button\" class=\"btn\" ng-class=\"{'btn-primary': axeForm.valid, 'btn-default': axeForm.invalid}\" " +
-            "ng-click=\"axeForm.save()\" ng-disabled=\"axeForm.invalid\">" +
+            "ng-click=\"axeForm.save($event)\" ng-disabled=\"axeForm.invalid\">" +
             "<i class=\"fa fa-save\"></i> Save</button>" +
             "</div>" + // button-group (undo/save)
             "</div>" + // pull-right

@@ -159,7 +159,11 @@ var Axe;
                 this.$modalInstance = $modalInstance;
                 this.context = context;
                 this.message = message;
-                this.close = function () { _this.$modalInstance.close(); };
+                this.close = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    _this.$modalInstance.close();
+                };
             }
             Object.defineProperty(Controller.prototype, "heading", {
                 get: function () {
@@ -234,8 +238,16 @@ var Axe;
                 this.message = message;
                 this.yesButtonText = yesButtonText;
                 this.noButtonText = noButtonText;
-                this.yes = function () { _this.$modalInstance.close(); };
-                this.no = function () { _this.$modalInstance.dismiss(); };
+                this.yes = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    _this.$modalInstance.close();
+                };
+                this.no = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    _this.$modalInstance.dismiss();
+                };
             }
             Controller.$inject = ["$scope", "$modalInstance", "heading", "message", "yesButtonText", "noButtonText"];
             return Controller;
@@ -500,7 +512,9 @@ var Axe;
                 this.$axeConfirm = $axeConfirm;
                 this.$axeAlert = $axeAlert;
                 this.$parent = undefined;
-                this.back = function () {
+                this.back = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
                     if (IsBlank(_this.$scope.back)) {
                         _this.$window.history.back();
                     }
@@ -511,12 +525,20 @@ var Axe;
                 this.reload = function () { if (!IsBlank(_this.$scope.load)) {
                     _this.$parent.execute(_this.$scope.load);
                 } };
-                this.undo = function () {
+                this.undo = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
                     _this.$axeConfirm.confirm("Undo Changes", "Are you sure you want to undo your changes?", ESize.sm)
                         .result.then(function () { _this.$route.reload(); });
                 };
-                this.save = function () { _this.$parent.execute(_this.$scope.save); };
-                this.delete = function () {
+                this.save = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
+                    _this.$parent.execute(_this.$scope.save);
+                };
+                this.delete = function ($event) {
+                    $event.preventDefault();
+                    $event.stopPropagation();
                     _this.$axeConfirm.confirm("Delete Record", "Are you sure you want to delete this record?", ESize.sm)
                         .result.then(function () {
                         _this.$parent.execute(_this.$scope.delete);
@@ -796,20 +818,22 @@ axe.directive("axeFormLabel", function () {
         }
     };
 });
-axe.directive("axeFormInput", function () {
-    return {
-        restrict: "A",
-        require: ["ngModel"],
-        link: {
-            pre: function ($scope, iElement, iAttrs, controllers) {
-                if (!iElement.hasClass("form-control")) {
-                    iElement.addClass("form-control");
+axe.directive("axeFormInput", ["$log", function ($log) {
+        return {
+            restrict: "A",
+            require: ["ngModel"],
+            link: {
+                pre: function ($scope, iElement, iAttrs, controllers) {
+                    if (!iElement.hasClass("form-control")) {
+                        iElement.addClass("form-control");
+                    }
+                    if (Axe.Option(iAttrs["axeFormInput"], "") === "date") {
+                        $log.debug("DATE");
+                    }
                 }
-                window.console.log(iAttrs["ngModel"]);
             }
-        }
-    };
-});
+        };
+    }]);
 axe.directive("axeSave", function () {
     return {
         restrict: "A",
@@ -837,7 +861,7 @@ angular.module("templates/axeAlert.html", []).run(["$templateCache",
             "<div class=\"modal-body\"><p>{{axeAlert.message}}</p></div>" +
             "<div class=\"modal-footer\">" +
             "<div class=\"btn-group axe-btn-group\">" +
-            "<button type=\"submit\" class=\"btn btn-xs btn-default\" ng-click=\"axeAlert.close()\">Ok</button>" +
+            "<button type=\"submit\" class=\"btn btn-xs btn-default\" ng-click=\"axeAlert.close($event)\">Ok</button>" +
             "</div></div>");
     }]);
 angular.module("templates/axeConfirm.html", []).run(["$templateCache",
@@ -847,9 +871,9 @@ angular.module("templates/axeConfirm.html", []).run(["$templateCache",
             "<div class=\"modal-body\"><p>{{axeConfirm.message}}</p></div>" +
             "<div class=\"modal-footer\">" +
             "<div class=\"btn-group btn-group-xs axe-btn-group\">" +
-            "<button type=\"submit\" class=\"btn btn-primary\" ng-click=\"axeConfirm.yes()\">" +
+            "<button type=\"submit\" class=\"btn btn-primary\" ng-click=\"axeConfirm.yes($event)\">" +
             "{{axeConfirm.yesButtonText}}</button>" +
-            "<button type=\"reset\" class=\"btn btn-default\" ng-click=\"axeConfirm.no()\">" +
+            "<button type=\"reset\" class=\"btn btn-default\" ng-click=\"axeConfirm.no($event)\">" +
             "{{axeConfirm.noButtonText}}</button>" +
             "</div></div>");
     }]);
@@ -879,16 +903,16 @@ angular.module("templates/axeForm.html", []).run(["$templateCache",
             "<div class=\"panel-footer clearfix\">" +
             "<div class=\"pull-right\">" +
             "<div ng-hide=\"axeForm.dirty\" class=\"btn-group axe-btn-group\">" +
-            "<button ng-if=\"axeForm.deleteable\" type=\"button\" class=\"btn btn-danger\" ng-click=\"axeForm.delete()\">" +
+            "<button ng-if=\"axeForm.deleteable\" type=\"button\" class=\"btn btn-danger\" ng-click=\"axeForm.delete($event)\">" +
             "<i class=\"fa fa-trash-o\"></i> Delete</button>" +
-            "<button type=\"button\" class=\"btn btn-default\" ng-click=\"axeForm.back()\">" +
+            "<button type=\"button\" class=\"btn btn-default\" ng-click=\"axeForm.back($event)\">" +
             "<i class=\"fa fa-chevron-circle-left\"></i> Back</button>" +
             "</div>" +
             "<div ng-show=\"axeForm.dirty\" class=\"btn-group axe-btn-group\">" +
-            "<button type=\"button\" class=\"btn btn-warning\" ng-click=\"axeForm.undo()\">" +
+            "<button type=\"button\" class=\"btn btn-warning\" ng-click=\"axeForm.undo($event)\">" +
             "<i class=\"fa fa-undo\"></i> Undo</button>" +
             "<button type=\"button\" class=\"btn\" ng-class=\"{'btn-primary': axeForm.valid, 'btn-default': axeForm.invalid}\" " +
-            "ng-click=\"axeForm.save()\" ng-disabled=\"axeForm.invalid\">" +
+            "ng-click=\"axeForm.save($event)\" ng-disabled=\"axeForm.invalid\">" +
             "<i class=\"fa fa-save\"></i> Save</button>" +
             "</div>" +
             "</div>" +

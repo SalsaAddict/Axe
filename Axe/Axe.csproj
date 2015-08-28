@@ -64,9 +64,14 @@
     <Content Include="content\axe.min.css">
       <DependentUpon>axe.css</DependentUpon>
     </Content>
+    <Content Include="content\bootstrap-theme.css" />
+    <Content Include="content\bootstrap-theme.min.css" />
+    <Content Include="content\bootstrap.css" />
+    <Content Include="content\bootstrap.min.css" />
     <Content Include="content\bootstrap.yeti.css" />
     <Content Include="content\bootstrap.yeti.min.css" />
     <Content Include="content\ui-bootstrap-csp.css" />
+    <Content Include="fonts\glyphicons-halflings-regular.svg" />
     <Content Include="packages.config" />
     <Content Include="scripts\angular-mocks.js" />
     <Content Include="scripts\angular-route.js" />
@@ -85,9 +90,17 @@
     <Content Include="scripts\axe\advent.min.js.map">
       <DependentUpon>advent.min.js</DependentUpon>
     </Content>
+    <Content Include="fonts\glyphicons-halflings-regular.woff2" />
+    <Content Include="fonts\glyphicons-halflings-regular.woff" />
+    <Content Include="fonts\glyphicons-halflings-regular.ttf" />
+    <Content Include="fonts\glyphicons-halflings-regular.eot" />
+    <Content Include="content\bootstrap-theme.css.map" />
+    <Content Include="content\bootstrap.css.map" />
     <Content Include="scripts\angular.min.js.map" />
     <Content Include="scripts\angular-route.min.js.map" />
     <None Include="scripts\jquery-2.1.4.intellisense.js" />
+    <Content Include="scripts\bootstrap.js" />
+    <Content Include="scripts\bootstrap.min.js" />
     <Content Include="scripts\i18n\angular-locale_aa-dj.js" />
     <Content Include="scripts\i18n\angular-locale_aa-er.js" />
     <Content Include="scripts\i18n\angular-locale_aa-et.js" />
@@ -729,6 +742,7 @@
     <Content Include="scripts\i18n\angular-locale_sv-fi.js" />
     <Content Include="scripts\i18n\angular-locale_sv-se.js" />
     <Content Include="scripts\i18n\angular-locale_sv.js" />
+    <Content Include="scripts\i18n\angular-locale_sw-cd.js" />
     <Content Include="scripts\i18n\angular-locale_sw-ke.js" />
     <Content Include="scripts\i18n\angular-locale_sw-tz.js" />
     <Content Include="scripts\i18n\angular-locale_sw-ug.js" />
@@ -842,15 +856,9 @@
     </None>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="content\bootstrap-theme.css" />
-    <Content Include="content\bootstrap-theme.min.css" />
-    <Content Include="content\bootstrap.css" />
-    <Content Include="content\bootstrap.min.css" />
     <Content Include="content\font-awesome.css" />
     <Content Include="content\font-awesome.min.css" />
     <Content Include="fonts\fontawesome-webfont.svg" />
-    <Content Include="fonts\glyphicons-halflings-regular.svg" />
-    <Content Include="Icon.png" />
     <Content Include="main.html" />
     <Content Include="scripts\axe\advent.js" />
     <Content Include="scripts\axe\advent.min.js">
@@ -860,14 +868,6 @@
     <Content Include="scripts\axe\axe.min.js">
       <DependentUpon>axe.js</DependentUpon>
     </Content>
-    <Content Include="scripts\bootstrap.js" />
-    <Content Include="scripts\bootstrap.min.js" />
-    <Content Include="fonts\glyphicons-halflings-regular.woff2" />
-    <Content Include="fonts\glyphicons-halflings-regular.woff" />
-    <Content Include="fonts\glyphicons-halflings-regular.ttf" />
-    <Content Include="fonts\glyphicons-halflings-regular.eot" />
-    <Content Include="content\bootstrap-theme.css.map" />
-    <Content Include="content\bootstrap.css.map" />
     <Content Include="fonts\fontawesome-webfont.woff" />
     <Content Include="fonts\fontawesome-webfont.ttf" />
     <Content Include="fonts\fontawesome-webfont.eot" />
@@ -876,7 +876,6 @@
     <Content Include="scripts\moment-with-locales.min.js" />
     <Content Include="scripts\moment.js" />
     <Content Include="scripts\moment.min.js" />
-    <Content Include="scripts\npm.js" />
     <Content Include="views\home.html" />
     <Content Include="Web.config" />
   </ItemGroup>

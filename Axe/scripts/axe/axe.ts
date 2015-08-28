@@ -574,7 +574,7 @@ axe.directive("axeSave", function () {
                 $parameterScope.value = iAttrs["ngModel"];
                 $parameterScope.format = iAttrs["axeFormat"];
                 if (angular.isDefined(iAttrs["required"])) { $parameterScope.required = "true"; }
-                controllers[1].$parent.$parent.addSaveParameter(
+                controllers[1].$parent.$parent.addSaveParameter(<Axe.Procedure.Parameter.Controller>
                     $injector.instantiate(Axe.Procedure.Parameter.Controller, { $scope: $parameterScope }));
             }
         }

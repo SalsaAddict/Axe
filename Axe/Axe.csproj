@@ -98,6 +98,15 @@
     <Content Include="content\bootstrap.css.map" />
     <Content Include="scripts\angular.min.js.map" />
     <Content Include="scripts\angular-route.min.js.map" />
+    <Content Include="scripts\bootstrap.min.js.map">
+      <DependentUpon>bootstrap.min.js</DependentUpon>
+    </Content>
+    <Content Include="scripts\angular-ui\ui-bootstrap-tpls.min.js.map">
+      <DependentUpon>ui-bootstrap-tpls.min.js</DependentUpon>
+    </Content>
+    <Content Include="scripts\angular-ui\ui-bootstrap.min.js.map">
+      <DependentUpon>ui-bootstrap.min.js</DependentUpon>
+    </Content>
     <None Include="scripts\jquery-2.1.4.intellisense.js" />
     <Content Include="scripts\bootstrap.js" />
     <Content Include="scripts\bootstrap.min.js" />
@@ -848,6 +857,15 @@
     <Content Include="scripts\jquery-2.1.4.js" />
     <Content Include="scripts\jquery-2.1.4.min.js" />
     <Content Include="scripts\jquery-2.1.4.min.map" />
+    <Content Include="scripts\jquery-2.1.4.min.js.map">
+      <DependentUpon>jquery-2.1.4.min.js</DependentUpon>
+    </Content>
+    <Content Include="scripts\moment-with-locales.min.js.map">
+      <DependentUpon>moment-with-locales.min.js</DependentUpon>
+    </Content>
+    <Content Include="scripts\moment.min.js.map">
+      <DependentUpon>moment.min.js</DependentUpon>
+    </Content>
     <None Include="Web.Debug.config">
       <DependentUpon>Web.config</DependentUpon>
     </None>
@@ -894,6 +912,7 @@
     <TypeScriptCompile Include="scripts\typings\angularjs\angular-sanitize.d.ts" />
     <TypeScriptCompile Include="scripts\typings\angularjs\angular.d.ts" />
     <TypeScriptCompile Include="scripts\typings\jquery\jquery.d.ts" />
+    <TypeScriptCompile Include="scripts\typings\moment-timezone\moment-timezone.d.ts" />
     <TypeScriptCompile Include="scripts\typings\moment\moment-node.d.ts" />
     <TypeScriptCompile Include="scripts\typings\moment\moment.d.ts" />
   </ItemGroup>

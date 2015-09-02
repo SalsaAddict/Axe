@@ -83,28 +83,32 @@ var Axe;
         var value = expression;
         switch (format) {
             case EFormat.integer:
-                value = parseInt(parseFloat(value).toFixed(0), 10);
+                value = parseInt(parseFloat(expression).toFixed(0), 10);
                 break;
             case EFormat.decimal:
-                value = parseFloat(parseFloat(value).toFixed(2));
+                value = parseFloat(parseFloat(expression).toFixed(2));
                 break;
             case EFormat.percent:
-                value = parseFloat(parseFloat(value).toFixed(4));
+                value = parseFloat(parseFloat(expression).toFixed(4));
                 break;
             case EFormat.date:
-                var dateFormat = "YYYY-MM-DD";
-                switch (Option(value)) {
+                var outFormat = "YYYY-MM-DD";
+                switch (Option(expression)) {
                     case "today":
-                        value = moment().format(dateFormat);
+                        value = moment().format(outFormat);
                         break;
                     case "tomorrow":
-                        value = moment().add("d", 1).format(dateFormat);
+                        value = moment().add("d", 1).format(outFormat);
                         break;
                     case "yesterday":
-                        value = moment().subtract("d", 1).format(dateFormat);
+                        value = moment().subtract("d", 1).format(outFormat);
                         break;
                     default:
-                        value = moment(value).format(dateFormat);
+                        value = moment(expression, "DD/MM/YYYY");
+                        if (!moment(value).isValid()) {
+                            value = moment(expression);
+                        }
+                        value = moment(value).format(outFormat);
                         if (!moment(value).isValid()) {
                             value = undefined;
                         }
@@ -719,6 +723,10 @@ var axe = angular.module("axe", [
     "templates/axeForm.html",
     "templates/axeFormSection.html",
     "templates/axeFormLabel.html"]);
+axe.config(function () {
+    moment.locale("en-us");
+    window.console.debug(JSON.stringify(moment.locale()));
+});
 axe.service("$axeAlert", Axe.Alert.Service);
 axe.service("$axeConfirm", Axe.Confirm.Service);
 axe.directive("axeContext", function () {
@@ -818,7 +826,7 @@ axe.directive("axeFormLabel", function () {
         }
     };
 });
-axe.directive("axeFormInput", ["$log", function ($log) {
+axe.directive("axeFormInput", ["$filter", "$log", function ($filter, $log) {
         return {
             restrict: "A",
             require: ["ngModel"],
@@ -827,8 +835,23 @@ axe.directive("axeFormInput", ["$log", function ($log) {
                     if (!iElement.hasClass("form-control")) {
                         iElement.addClass("form-control");
                     }
-                    if (Axe.Option(iAttrs["axeFormInput"], "") === "date") {
-                        $log.debug("DATE");
+                    switch (Axe.Option(iAttrs["axeFormInput"], "")) {
+                        case "date":
+                            iAttrs.$set("placeholder", angular.uppercase(moment.localeData().longDateFormat("L")));
+                            controllers[0].$parsers.push(function ($viewValue) {
+                                var format = moment.localeData().longDateFormat("L");
+                                if (!moment($viewValue, format).isValid()) {
+                                    return undefined;
+                                }
+                                return moment($viewValue, format).format("YYYY-MM-DD");
+                            });
+                            controllers[0].$formatters.push(function ($modelValue) {
+                                if (Axe.IsBlank($modelValue)) {
+                                    return undefined;
+                                }
+                                return moment($modelValue).format("L");
+                            });
+                            break;
                     }
                 }
             }

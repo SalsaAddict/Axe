@@ -35,17 +35,19 @@ module Axe {
         if (IsBlank(expression)) { return defaultValue; }
         var value: any = expression;
         switch (format) {
-            case EFormat.integer: value = parseInt(parseFloat(value).toFixed(0), 10); break;
-            case EFormat.decimal: value = parseFloat(parseFloat(value).toFixed(2)); break;
-            case EFormat.percent: value = parseFloat(parseFloat(value).toFixed(4)); break;
+            case EFormat.integer: value = parseInt(parseFloat(expression).toFixed(0), 10); break;
+            case EFormat.decimal: value = parseFloat(parseFloat(expression).toFixed(2)); break;
+            case EFormat.percent: value = parseFloat(parseFloat(expression).toFixed(4)); break;
             case EFormat.date:
-                var dateFormat: string = "YYYY-MM-DD";
-                switch (Option(value)) {
-                    case "today": value = moment().format(dateFormat); break;
-                    case "tomorrow": value = moment().add("d", 1).format(dateFormat); break;
-                    case "yesterday": value = moment().subtract("d", 1).format(dateFormat); break;
+                var outFormat: string = "YYYY-MM-DD";
+                switch (Option(expression)) {
+                    case "today": value = moment().format(outFormat); break;
+                    case "tomorrow": value = moment().add("d", 1).format(outFormat); break;
+                    case "yesterday": value = moment().subtract("d", 1).format(outFormat); break;
                     default:
-                        value = moment(value).format(dateFormat);
+                        value = moment(expression, "DD/MM/YYYY");
+                        if (!moment(value).isValid()) { value = moment(expression); }
+                        value = moment(value).format(outFormat);
                         if (!moment(value).isValid()) { value = undefined; }
                         break;
                 }
@@ -432,6 +434,11 @@ var axe = angular.module("axe", [
     "templates/axeFormSection.html",
     "templates/axeFormLabel.html"]);
 
+axe.config(function () {
+    moment.locale("en-us");
+    window.console.debug(JSON.stringify(moment.locale()));
+});
+
 axe.service("$axeAlert", Axe.Alert.Service);
 axe.service("$axeConfirm", Axe.Confirm.Service);
 
@@ -562,7 +569,8 @@ axe.directive("axeFormLabel", function () {
     };
 });
 
-axe.directive("axeFormInput", ["$log", function ($log: angular.ILogService) {
+axe.directive("axeFormInput", ["$filter", "$log", function (
+    $filter: angular.IFilterService, $log: angular.ILogService) {
     return {
         restrict: "A",
         require: ["ngModel"],
@@ -573,8 +581,19 @@ axe.directive("axeFormInput", ["$log", function ($log: angular.ILogService) {
                 iAttrs: angular.IAttributes,
                 controllers: [angular.INgModelController]) {
                 if (!iElement.hasClass("form-control")) { iElement.addClass("form-control"); }
-                if (Axe.Option(iAttrs["axeFormInput"], "") === "date") {
-                    $log.debug("DATE");
+                switch (Axe.Option(iAttrs["axeFormInput"], "")) {
+                    case "date":
+                        iAttrs.$set("placeholder", angular.uppercase(moment.localeData().longDateFormat("L")));
+                        controllers[0].$parsers.push(function ($viewValue: any): string {
+                            var format: string = moment.localeData().longDateFormat("L");
+                            if (!moment($viewValue, format).isValid()) { return undefined; }
+                            return moment($viewValue, format).format("YYYY-MM-DD");
+                        });
+                        controllers[0].$formatters.push(function ($modelValue: any): string {
+                            if (Axe.IsBlank($modelValue)) { return undefined; }
+                            return moment($modelValue).format("L");
+                        });
+                        break;
                 }
             }
         }

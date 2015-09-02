@@ -1,11 +1,12 @@
-﻿<axe-context heading="Binder Details">
+﻿<axe-context heading="Binder Details" ng-init="Test = {Forename: '1 Mar 2013'}">
     <axe-procedure name="apiBinder" route-params="true"></axe-procedure>
     <axe-procedure name="apiBinderSave" route-params="true"></axe-procedure>
     <axe-procedure name="apiBinderDelete" route-params="true"></axe-procedure>
     <axe-form heading="This is a test!" subheading="Pierre Henry" load="apiBinder" save="apiBinderSave" delete="apiBinderDelete">
         <axe-form-section heading="Second" sort="1">
             <axe-form-label heading="Forename">
-                <input type="text" ng-model="Test.Forename" required axe-form-input="date" axe-save="Forename" />
+                <input type="text" ng-model="Test.Forename" axe-form-input="date" axe-save="Forename" />
+                {{Test.Forename}}
             </axe-form-label>
             <axe-form-label heading="Surname">
                 <input type="text" class="form-control" ng-model="Test.Surname" required axe-save="Surname" />
@@ -18,4 +19,4 @@
         </axe-form-section>
     </axe-form>
 </axe-context>
-<pre>{{Test}}</pre>
+<pre>{{Test.Forename}}</pre>
